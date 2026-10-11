@@ -292,6 +292,10 @@ For any other client, `npx add-mcp @professional-wiki/mediawiki-mcp-server` may 
 
 Running the server as a remote HTTP endpoint for other users has its own configuration requirements — see [docs/deployment.md](docs/deployment.md). A pre-built image is published at `ghcr.io/professionalwiki/mediawiki-mcp-server`. For day-2 operations (logs, `/health`/`/ready`, metrics, graceful shutdown), see [docs/operations.md](docs/operations.md).
 
+## Embedding
+
+To serve these tools from your own MCP server, import the package instead of running it. See [docs/embedding.md](docs/embedding.md).
+
 ## Security
 
 Defaults are safe for single-user use. Before exposing the HTTP transport to others, lock down three things:

@@ -6,6 +6,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 ## [Unreleased]
 
+### Added
+
+- The package can now be imported as a library: `createServer` and the pieces it needs are exported from the package's main entry, with type declarations, so another MCP server can build the standard wiki tools for a configuration it supplies and attach them to its own transport. `createServer` takes `serverInfo` to name the server and `instructions` to replace the default instructions. See [docs/embedding.md](docs/embedding.md).
+
+### Changed
+
+- The package's `main` entry is now `dist/lib.js`, which starts nothing on import. The `mediawiki-mcp-server` command is unchanged.
+
 ### Fixed
 
 - `move-page` now reports `redirectCreated: false` when no redirect was left at the old title, instead of always reporting `true`.

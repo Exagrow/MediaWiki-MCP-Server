@@ -1,8 +1,20 @@
 import { describe, expect, it, vi } from 'vitest';
 import { Client } from '@modelcontextprotocol/client';
 import { InMemoryTransport } from '@modelcontextprotocol/server';
-import { createServer } from '../src/server.ts';
+import { createRequire } from 'node:module';
+import { createServer, SERVER_INSTRUCTIONS } from '../src/server.ts';
 import { fakeContext } from './helpers/fakeContext.ts';
+
+const { version: packagedVersion } = createRequire(import.meta.url)('../server.json') as {
+	version: string;
+};
+
+async function connect(server: Awaited<ReturnType<typeof createServer>>): Promise<Client> {
+	const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
+	const client = new Client({ name: 'server-test', version: '0.0.0' });
+	await Promise.all([client.connect(clientTransport), server.connect(serverTransport)]);
+	return client;
+}
 
 const wikiConfig = {
 	sitename: 'Test',
@@ -41,6 +53,43 @@ describe('createServer capabilities', () => {
 			},
 		});
 		await expect(createServer(ctx)).rejects.toThrow('probe exploded');
+	});
+});
+
+describe('createServer identity', () => {
+	it('identifies as mediawiki-mcp-server with the packaged version and instructions by default', async () => {
+		const client = await connect(await createServer(fakeContext()));
+		try {
+			expect(client.getServerVersion()?.name).toBe('mediawiki-mcp-server');
+			expect(client.getServerVersion()?.version).toBe(packagedVersion);
+			expect(client.getInstructions()).toBe(SERVER_INSTRUCTIONS);
+		} finally {
+			await client.close();
+		}
+	});
+
+	it('lets serverInfo override single fields and keeps the rest', async () => {
+		const server = await createServer(fakeContext(), {
+			serverInfo: { name: 'embedding-server', title: 'Embedding Server' },
+		});
+		const client = await connect(server);
+		try {
+			expect(client.getServerVersion()?.name).toBe('embedding-server');
+			expect(client.getServerVersion()?.title).toBe('Embedding Server');
+			expect(client.getServerVersion()?.version).toBe(packagedVersion);
+		} finally {
+			await client.close();
+		}
+	});
+
+	it('replaces the instructions when supplied', async () => {
+		const instructions = `${SERVER_INSTRUCTIONS}\n\nExtra guidance.`;
+		const client = await connect(await createServer(fakeContext(), { instructions }));
+		try {
+			expect(client.getInstructions()).toBe(instructions);
+		} finally {
+			await client.close();
+		}
 	});
 });
 
