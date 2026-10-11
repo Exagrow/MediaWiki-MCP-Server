@@ -4,6 +4,7 @@ import type { Tool } from '../runtime/tool.ts';
 import type { ToolContext } from '../runtime/context.ts';
 import { buildPageUrl } from '../wikis/utils.ts';
 import { ContentFormat } from '../results/contentFormat.ts';
+import { htmlToText } from '../results/htmlText.ts';
 import { truncateByBytes, type TruncationInfo } from '../results/truncation.ts';
 import { toOutlineLines, type SectionEntry } from '../services/sectionService.ts';
 import { sectionContentTruncation } from '../services/sectionMarker.ts';
@@ -35,7 +36,7 @@ const inputSchema = {
 export const getPage: Tool<typeof inputSchema> = {
 	name: 'get-page',
 	description:
-		'Returns a single wiki page (wikitext source, rendered HTML, or metadata only). If the title does not exist, an error is returned. Use metadata=true to retrieve the revision ID (for edit-conflict detection), page size, and section outline. Set content="none" to fetch only metadata. Large content is truncated at 75000 bytes by default, with a marker reporting how much of it was returned and which sections a narrower read can target; a follow-up call with section=N fetches a specific section. For more than one page at a time, use get-pages. For a specific historical revision, use get-revision.',
+		'Returns a single wiki page (wikitext source, rendered HTML, readable plain text, or metadata only). If the title does not exist, an error is returned. Use metadata=true to retrieve the revision ID (for edit-conflict detection), page size, and section outline. Set content="none" to fetch only metadata. Use content="text" to read the page as prose: the rendered page with headings as # lines, lists as - bullets, table cells joined with |, and edit links, the table of contents and navigation boxes left out; it is not wikitext, so choose "source" to edit and "html" for markup. Large content is truncated at 75000 bytes by default, with a marker reporting how much of it was returned and which sections a narrower read can target; a follow-up call with section=N fetches a specific section. For more than one page at a time, use get-pages. For a specific historical revision, use get-revision.',
 	inputSchema,
 	annotations: {
 		title: 'Get page',
@@ -68,6 +69,7 @@ export const getPage: Tool<typeof inputSchema> = {
 			sections?: string[];
 			source?: string;
 			html?: string;
+			text?: string;
 			truncation?: TruncationInfo;
 		} = {};
 
@@ -138,7 +140,7 @@ export const getPage: Tool<typeof inputSchema> = {
 			}
 		}
 
-		if (content === ContentFormat.html) {
+		if (content === ContentFormat.html || content === ContentFormat.text) {
 			const parseParams: Record<string, string | number> = {
 				action: 'parse',
 				page: title,
@@ -152,8 +154,13 @@ export const getPage: Tool<typeof inputSchema> = {
 			const html: string | undefined = parseResult.parse?.text;
 
 			if (html !== undefined) {
-				const truncated = truncateByBytes(html);
-				payload.html = truncated.text;
+				const asText = content === ContentFormat.text;
+				const truncated = truncateByBytes(asText ? htmlToText(html) : html);
+				if (asText) {
+					payload.text = truncated.text;
+				} else {
+					payload.html = truncated.text;
+				}
 
 				if (payload.title === undefined) {
 					const resolvedTitle: string = parseResult.parse?.title ?? title;
@@ -169,7 +176,7 @@ export const getPage: Tool<typeof inputSchema> = {
 					payload.truncation = sectionContentTruncation({
 						entries,
 						section,
-						itemNoun: 'HTML',
+						itemNoun: asText ? 'text' : 'HTML',
 						toolName: 'get-page',
 						returnedBytes: truncated.returnedBytes,
 						totalBytes: truncated.totalBytes,
