@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 ## [Unreleased]
 
+### Added
+
+- `get-page` accepts `content="text"`, which returns the rendered page as readable plain text for reading rather than editing: headings as `#` lines, lists as `-` bullets, table cells joined with ` | `, and edit links, the table of contents and navigation boxes left out. It is cut at the same byte limit as `source` and `html`.
+
 ### Fixed
 
 - `move-page` now reports `redirectCreated: false` when no redirect was left at the old title, instead of always reporting `true`.
