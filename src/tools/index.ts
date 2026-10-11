@@ -19,10 +19,14 @@ export function registerAllTools(
 	server: McpServer,
 	reconcile: Reconcile,
 	ctx: ToolContext,
+	toolFilter: (toolName: string) => boolean = () => true,
 ): Map<string, RegisteredTool> {
 	const registered = new Map<string, RegisteredTool>();
 
 	for (const tool of standardTools) {
+		if (!toolFilter(tool.name)) {
+			continue;
+		}
 		try {
 			registered.set(tool.name, register(server, tool, dispatch(tool, ctx)));
 		} catch (error) {
@@ -32,6 +36,9 @@ export function registerAllTools(
 
 	const mgmtCtx: ManagementContext = { ...ctx, reconcile };
 	for (const tool of managementTools) {
+		if (!toolFilter(tool.name)) {
+			continue;
+		}
 		try {
 			registered.set(tool.name, register(server, tool, dispatch(tool, mgmtCtx)));
 		} catch (error) {

@@ -49,6 +49,8 @@ export interface CreateServerOptions {
 	};
 	// Replaces SERVER_INSTRUCTIONS, which is exported for callers that append.
 	instructions?: string;
+	// Called with each standard tool's name; a tool it rejects is never registered.
+	toolFilter?: (toolName: string) => boolean;
 }
 
 // Everything cacheable here changes only when a reconcile pass runs (a wiki is
@@ -116,7 +118,7 @@ export const createServer = async (
 		publisher.toolsChanged();
 	};
 
-	const registered = registerAllTools(server, reconcile, ctx);
+	const registered = registerAllTools(server, reconcile, ctx, options.toolFilter);
 	for (const [name, tool] of registered) {
 		tools.set(name, tool);
 	}

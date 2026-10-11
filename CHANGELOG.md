@@ -8,7 +8,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 ### Added
 
-- The package can now be imported as a library: `createServer` and the pieces it needs are exported from the package's main entry, with type declarations, so another MCP server can build the standard wiki tools for a configuration it supplies and attach them to its own transport. `createServer` takes `serverInfo` to name the server and `instructions` to replace the default instructions. See [docs/embedding.md](docs/embedding.md).
+- The package can now be imported as a library: `createServer` and the pieces it needs are exported from the package's main entry, with type declarations, so another MCP server can build the standard wiki tools for a configuration it supplies and attach them to its own transport. `createServer` takes `serverInfo` to name the server, `instructions` to replace the default instructions, and `toolFilter` to leave standard tools out. See [docs/embedding.md](docs/embedding.md).
 
 ### Changed
 

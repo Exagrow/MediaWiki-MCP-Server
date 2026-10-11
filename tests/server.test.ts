@@ -93,6 +93,60 @@ describe('createServer identity', () => {
 	});
 });
 
+describe('createServer toolFilter', () => {
+	it('lists every standard tool when no toolFilter is given', async () => {
+		const client = await connect(await createServer(fakeContext()));
+		try {
+			const names = (await client.listTools()).tools.map((t) => t.name);
+			expect(names).toContain('oauth-status');
+			expect(names).toContain('oauth-logout');
+		} finally {
+			await client.close();
+		}
+	});
+
+	it('omits tools the toolFilter rejects and keeps the rest, write gating included', async () => {
+		const unfiltered = await connect(await createServer(fakeContext()));
+		const all = (await unfiltered.listTools()).tools.map((t) => t.name);
+		await unfiltered.close();
+
+		const server = await createServer(fakeContext(), {
+			toolFilter: (name) => !name.startsWith('oauth-'),
+		});
+		const client = await connect(server);
+		try {
+			const names = (await client.listTools()).tools.map((t) => t.name);
+			expect(names).toEqual(all.filter((name) => !name.startsWith('oauth-')));
+			expect(names).toContain('create-page');
+		} finally {
+			await client.close();
+		}
+	});
+
+	it('still gates the write tools by wiki when a toolFilter hides others', async () => {
+		const readOnlyWiki = { ...wikiConfig, readOnly: true };
+		const ctx = fakeContext({
+			wikis: {
+				getAll: () => ({ 'test-wiki': readOnlyWiki }) as never,
+				get: (() => readOnlyWiki) as never,
+				add: vi.fn() as never,
+				remove: vi.fn() as never,
+				isManagementAllowed: () => false,
+			},
+		});
+		const server = await createServer(ctx, { toolFilter: (name) => name !== 'get-page' });
+		const client = await connect(server);
+		try {
+			const names = (await client.listTools()).tools.map((t) => t.name);
+			expect(names).not.toContain('get-page');
+			expect(names).not.toContain('create-page');
+			expect(names).toContain('get-pages');
+		} finally {
+			await client.close();
+		}
+	});
+});
+
 describe('createServer change publishing', () => {
 	it('does not publish during construction', async () => {
 		const publisher = { toolsChanged: vi.fn(), resourcesChanged: vi.fn() };

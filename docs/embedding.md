@@ -46,6 +46,8 @@ const config: Config = {
 const ctx = createToolContext( { logger, state: createAppState( config ), transport: 'stdio' } );
 const server = await createServer( ctx, {
 	serverInfo: { name: 'my-server', version: '1.0.0' },
+	// The OAuth tools are meaningless when the host handles sign-in.
+	toolFilter: ( name ) => !name.startsWith( 'oauth-' ),
 } );
 
 // Tools of your own register directly on the returned server.
@@ -60,6 +62,7 @@ await server.connect( transport );
 | --- | --- | --- |
 | `serverInfo` | The name, title, version and description of this package | Each field you give replaces the matching one the client sees |
 | `instructions` | `SERVER_INSTRUCTIONS` | Replaces the instructions sent to the client |
+| `toolFilter` | Every standard tool is registered | Called with each standard tool's name; a tool it rejects is never registered or listed |
 | `publisher` | Pushes resource list changes on the server's own connection | Delivers list-changed events when your transport cannot receive pushes |
 
 Tools you register on the returned server do not pass through the standard tools' error classification, telemetry, result byte cap, `wiki` argument handling or read-only gating.
