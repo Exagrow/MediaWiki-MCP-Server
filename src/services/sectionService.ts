@@ -226,3 +226,26 @@ export function outlineLines(
 	}
 	return buildOutline(entries, totalBytes, depth).map(formatOutlineLine);
 }
+
+export type HeadingMatch =
+	| { kind: 'one'; index: number }
+	| { kind: 'none' }
+	| { kind: 'many'; indexes: number[] };
+
+// Finds the editable section a heading names, ignoring case and surrounding
+// whitespace. Transcluded sections are skipped: no `section=` value addresses
+// them. More than one match is reported rather than resolved, since picking
+// either would read a section the caller may not have meant.
+export function findSectionByHeading(
+	entries: readonly SectionEntry[],
+	heading: string,
+): HeadingMatch {
+	const wanted = heading.trim().toLowerCase();
+	const indexes = entries
+		.filter((e) => e.editable && plainHeading(e.line).toLowerCase() === wanted)
+		.map((e) => Number.parseInt(e.index, 10));
+	if (indexes.length === 0) {
+		return { kind: 'none' };
+	}
+	return indexes.length === 1 ? { kind: 'one', index: indexes[0] } : { kind: 'many', indexes };
+}

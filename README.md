@@ -18,7 +18,7 @@ Every tool that operates on a wiki accepts an optional `wiki` argument naming th
 | `get-file` | Fetch a file page. |
 | `get-file-data` | Fetch a file's image bytes inline (base64) for visual analysis — for clients that can't reach the wiki host. Returns a scaled rendition (set `width`); non-renderable types (audio, video, binaries) error. For metadata or a download URL, use `get-file`. |
 | `get-links-here` | List pages that reference a wiki page — pages that link to it, embed it as a template, or display it as a file (select via `type`), including pages that reach it through a redirect. Up to 500 per call, paginated via `continueFrom`. |
-| `get-page` | Fetch a wiki page as wikitext, HTML or plain text. |
+| `get-page` | Fetch a wiki page as wikitext, HTML or plain text, or one section of it by number or heading. |
 | `get-page-outline` | List a wiki page's sections without its content: each with its number, heading and approximate size (two significant figures, in bytes of wikitext including subsections), indented by nesting, such as `  2 (Origins), 500B`. The same call as `get-page` with `metadata=true` and `content="none"`, with a `depth` limit. |
 | `get-page-history` | List recent revisions of a wiki page. |
 | `get-pages` | Fetch multiple wiki pages in one call (up to 50). |
