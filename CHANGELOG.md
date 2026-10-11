@@ -9,6 +9,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 ### Fixed
 
 - `move-page` now reports `redirectCreated: false` when no redirect was left at the old title, instead of always reporting `true`.
+- `get-page`, `get-pages` and `update-page`'s `find-replace` now read pages with a GET request instead of a POST, so they work on wikis that reject POST requests to `api.php`. Reads of such a wiki failed with "Cannot read properties of undefined (reading 'pages')"; a read that fails now reports the wiki's own error.
 
 ## [0.19.0] - 2026-09-25
 

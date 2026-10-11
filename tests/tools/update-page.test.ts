@@ -1,6 +1,12 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import type { Mwn } from 'mwn';
 import { createMockMwn } from '../helpers/mock-mwn.ts';
+import {
+	readRequest,
+	revisionsResponse,
+	routeRequest,
+	toApiPage,
+} from '../helpers/revisionsRequest.ts';
 import { fakeContext } from '../helpers/fakeContext.ts';
 import { updatePage } from '../../src/tools/update-page.ts';
 import { dispatch } from '../../src/runtime/dispatcher.ts';
@@ -90,14 +96,13 @@ const PAGE =
 // caller holds only the text it is changing, so the read is part of the tool.
 function fakeFindReplace(current: string = PAGE, revid = 41) {
 	const base = fakeEdit();
-	const read = vi.fn().mockResolvedValue({
-		pageid: 5,
-		title: 'My Page',
-		revisions: [{ revid, content: current }],
-	});
+	const read = vi.fn().mockResolvedValue(
+		revisionsResponse({
+			pages: [toApiPage({ pageid: 5, title: 'My Page', revisions: [{ revid, content: current }] })],
+		}),
+	);
 	const mock = createMockMwn({
-		read,
-		request: base.request,
+		request: routeRequest(read, base.request),
 		getCsrfToken: vi.fn().mockResolvedValue('csrf-token'),
 	});
 	const ctx = fakeContext({ mwn: async () => mock as never, edit: base.ctx.edit });
@@ -880,7 +885,7 @@ describe('update-page find-replace', () => {
 			replaceWith: 'runs west',
 		});
 
-		expect(read.mock.calls[0][1]).toMatchObject({ rvsection: 1 });
+		expect(read.mock.calls[0][0]).toMatchObject({ rvsection: 1 });
 		expect(submit.mock.calls[0][1]).toMatchObject({ section: '1' });
 	});
 
@@ -931,12 +936,12 @@ describe('update-page find-replace', () => {
 	// give the same condition a second name.
 	it('refuses a section the page does not have, as the write path does', async () => {
 		const base = fakeEdit();
-		const read = vi.fn().mockResolvedValue({
-			pageid: 5,
-			title: 'My Page',
-			revisions: [{ nosuchsection: true }],
+		const mock = createMockMwn({
+			request: readRequest(
+				{ pageid: 5, title: 'My Page', revisions: [{ nosuchsection: true }] },
+				base.request,
+			),
 		});
-		const mock = createMockMwn({ read, request: base.request });
 		const ctx = fakeContext({ mwn: async () => mock as never, edit: base.ctx.edit });
 
 		const result = await callTool(ctx, 'update-page', {
@@ -953,7 +958,7 @@ describe('update-page find-replace', () => {
 		expect(base.submit).not.toHaveBeenCalled();
 	});
 
-	// mwn.read follows redirects by default while the edit goes to the title the
+	// The read follows redirects by default while the edit goes to the title the
 	// caller named, so the read would resolve to the target page and the splice
 	// would land the target's whole text on the redirect.
 	it('reads the title it will write to, not the page it redirects to', async () => {
@@ -966,7 +971,7 @@ describe('update-page find-replace', () => {
 			replaceWith: 'founded in 1105',
 		});
 
-		expect(read.mock.calls[0][1]).toMatchObject({ redirects: false });
+		expect(read.mock.calls[0][0]).toMatchObject({ redirects: false });
 	});
 
 	// A needle that can begin inside its own previous match names two different
@@ -1007,13 +1012,17 @@ describe('update-page find-replace', () => {
 	// outline at all.
 	it('does not consult the section outline', async () => {
 		const base = fakeEdit();
-		const read = vi.fn().mockResolvedValue({
-			pageid: 5,
-			title: 'My Page',
-			revisions: [{ revid: 41, content: '== History ==\nThe river runs east.\n' }],
-		});
 		const list = vi.fn();
-		const mock = createMockMwn({ read, request: base.request });
+		const mock = createMockMwn({
+			request: readRequest(
+				{
+					pageid: 5,
+					title: 'My Page',
+					revisions: [{ revid: 41, content: '== History ==\nThe river runs east.\n' }],
+				},
+				base.request,
+			),
+		});
 		const ctx = fakeContext({
 			mwn: async () => mock as never,
 			edit: base.ctx.edit,
