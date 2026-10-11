@@ -6,6 +6,7 @@ import {
 	formatOutlineLine,
 	outlineLines,
 	plainHeading,
+	findSectionByHeading,
 	toOutlineLines,
 	type SectionEntry,
 } from '../../src/services/sectionService.ts';
@@ -452,5 +453,36 @@ describe('outlineLines', () => {
 				2,
 			),
 		).toEqual(['0 (Lead)', '1 (Uses)', '2 (Skipped)']);
+	});
+});
+
+describe('findSectionByHeading', () => {
+	const entry = (index: string, line: string, editable = true): SectionEntry => ({
+		index,
+		level: 2,
+		line,
+		editable,
+	});
+
+	it('finds one section, ignoring case and surrounding whitespace', () => {
+		const entries = [entry('1', 'History'), entry('2', 'Geography')];
+		expect(findSectionByHeading(entries, '  geography ')).toEqual({ kind: 'one', index: 2 });
+	});
+
+	it('compares the visible text of a heading that carries markup and entities', () => {
+		const entries = [entry('1', '<i>Further Reading</i>'), entry('2', 'R&amp;D caf&#233;')];
+		expect(findSectionByHeading(entries, 'further reading')).toEqual({ kind: 'one', index: 1 });
+		expect(findSectionByHeading(entries, 'R&D caf\u00e9')).toEqual({ kind: 'one', index: 2 });
+	});
+
+	it('reports every match when a heading is ambiguous', () => {
+		const entries = [entry('1', 'Trivia'), entry('2', 'Plot'), entry('3', 'TRIVIA')];
+		expect(findSectionByHeading(entries, 'trivia')).toEqual({ kind: 'many', indexes: [1, 3] });
+	});
+
+	it('reports none when nothing matches, and skips transcluded sections', () => {
+		const entries = [entry('T-1', 'Shared', false), entry('1', 'History')];
+		expect(findSectionByHeading(entries, 'Shared')).toEqual({ kind: 'none' });
+		expect(findSectionByHeading(entries, 'Missing')).toEqual({ kind: 'none' });
 	});
 });
