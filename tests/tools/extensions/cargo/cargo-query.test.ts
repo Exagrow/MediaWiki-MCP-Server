@@ -278,4 +278,15 @@ describe('cargo-query', () => {
 		expect('having' in call).toBe(false);
 		expect('order_by' in call).toBe(false);
 	});
+
+	it('sends the query as a GET', async () => {
+		const mock = createMockMwn({ request: vi.fn().mockResolvedValue({ cargoquery: [] }) });
+		const ctx = fakeContext({ mwn: async () => mock as never });
+
+		await cargoQuery.handle({ tables: 'items' }, ctx);
+
+		expect(mock.request).toHaveBeenCalledWith(expect.objectContaining({ action: 'cargoquery' }), {
+			method: 'get',
+		});
+	});
 });

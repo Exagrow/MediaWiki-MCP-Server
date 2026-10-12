@@ -165,4 +165,21 @@ describe('fetchLabels', () => {
 
 		expect(labels.size).toBe(MAX_LABEL_IDS);
 	});
+
+	describe('fetchLabels request method', () => {
+		it('sends each batch as a GET', async () => {
+			const mock = createMockMwn({
+				request: vi.fn((params: Record<string, unknown>) =>
+					Promise.resolve(labelResponse(String(params.ids).split('|'))),
+				),
+			});
+
+			await fetchLabels(mock as never, ids(LABEL_CALL_SIZE + 1), LABEL_LANGUAGE);
+
+			expect(mock.request.mock.calls.map((call) => call[1])).toEqual([
+				{ method: 'get' },
+				{ method: 'get' },
+			]);
+		});
+	});
 });

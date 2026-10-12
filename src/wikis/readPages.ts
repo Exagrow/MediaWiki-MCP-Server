@@ -1,4 +1,5 @@
 import type { ApiPage, ApiParams, ApiResponse, Mwn } from 'mwn';
+import { encodedLength, urlBudget } from './readRequest.ts';
 
 /**
  * Page reads over GET.
@@ -13,27 +14,8 @@ import type { ApiPage, ApiParams, ApiResponse, Mwn } from 'mwn';
  * reject when a batch fails.
  */
 
-/**
- * The longest request URL a read may produce. Apache's default request line
- * limit is 8190 bytes and nginx's default header buffer is 8k, so 8000 stays
- * under both.
- */
-const MAX_URL_LENGTH = 8000;
-
-/**
- * Room kept free for what this module does not count: the parameters mwn adds
- * itself (`format`, `formatversion`, `maxlag`), and the difference between the
- * length estimated here and the one axios produces.
- */
-const URL_HEADROOM = 200;
-
 /** A pipe between two titles, percent-encoded as `%7C`. */
 const SEPARATOR_LENGTH = 3;
-
-/** An upper bound on the length of `value` in a query string, as axios encodes it. */
-function encodedLength(value: string): number {
-	return encodeURIComponent(value).length;
-}
 
 interface Batch {
 	values: string[];
@@ -50,20 +32,8 @@ interface Batch {
  */
 function planBatches(mwn: Mwn, query: ApiParams, field: string, values: string[]): Batch[] {
 	const limit = mwn.hasApiHighLimit ? 500 : 50;
-	const otherParams = Object.entries(query)
-		.filter(([name, value]) => name !== field && value !== undefined && value !== false)
-		.reduce(
-			(length, [name, value]) =>
-				length + name.length + encodedLength([value].flat().map(String).join('|')) + '=&'.length,
-			0,
-		);
-	const budget =
-		MAX_URL_LENGTH -
-		URL_HEADROOM -
-		(mwn.options.apiUrl?.length ?? 0) -
-		otherParams -
-		field.length -
-		1;
+	// Room left for the batched values once everything else in the URL is counted.
+	const budget = urlBudget(mwn, query, field) - field.length - 1;
 
 	const batches: Batch[] = [];
 	let batch: string[] = [];

@@ -96,4 +96,15 @@ describe('cargo-list-tables', () => {
 		const envelope = assertStructuredError(result, 'upstream_failure');
 		expect(envelope.message).toContain('cargotables network failure');
 	});
+
+	it('sends the request as a GET', async () => {
+		const mock = createMockMwn({ request: vi.fn().mockResolvedValue({ cargotables: [] }) });
+		const ctx = fakeContext({ mwn: async () => mock as never });
+
+		await cargoListTables.handle({}, ctx);
+
+		expect(mock.request).toHaveBeenCalledWith(expect.objectContaining({ action: 'cargotables' }), {
+			method: 'get',
+		});
+	});
 });

@@ -9,7 +9,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 ### Fixed
 
 - `move-page` now reports `redirectCreated: false` when no redirect was left at the old title, instead of always reporting `true`.
-- `get-page`, `get-pages` and `update-page`'s `find-replace` now read pages with a GET request instead of a POST, so they work on wikis that reject POST requests to `api.php`. Reads of such a wiki failed with "Cannot read properties of undefined (reading 'pages')"; a read that fails now reports the wiki's own error.
+- `get-page`, `get-pages`, `update-page`'s `find-replace`, `compare-pages`, `parse-wikitext`, `smw-query`, `smw-list-properties`, `cargo-query`, `cargo-list-tables`, `cargo-describe-table`, `wikibase-get-entity`, `wikibase-search-entities` and the property lookup in `wikibase-add-statement` now read from the wiki with a GET request instead of a POST, so they work on wikis that reject POST requests to `api.php`. Reads of such a wiki failed, in `get-page` and `get-pages` with "Cannot read properties of undefined (reading 'pages')"; a read that fails now reports the wiki's own error. A request too long for a URL is still sent as a POST, so a long text given to `parse-wikitext` or `compare-pages` still fails on such a wiki.
 
 ## [0.19.0] - 2026-09-25
 

@@ -1,6 +1,7 @@
 import type { CallToolResult } from '@modelcontextprotocol/server';
 import type { Tool } from '../../../runtime/tool.ts';
 import type { ToolContext } from '../../../runtime/context.ts';
+import { readRequest } from '../../../wikis/readRequest.ts';
 
 const inputSchema = {} as const;
 
@@ -24,7 +25,7 @@ export const cargoListTables: Tool<typeof inputSchema> = {
 
 	async handle(_args, ctx: ToolContext): Promise<CallToolResult> {
 		const mwn = await ctx.mwn();
-		const raw = await mwn.request({
+		const raw = await readRequest(mwn, {
 			action: 'cargotables',
 			format: 'json',
 		});

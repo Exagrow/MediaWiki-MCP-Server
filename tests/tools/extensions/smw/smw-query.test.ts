@@ -228,4 +228,15 @@ describe('smw-query', () => {
 		const envelope = assertStructuredError(result, 'upstream_failure');
 		expect(envelope.message).toContain('SMW timeout');
 	});
+
+	it('sends the query as a GET', async () => {
+		const mock = createMockMwn({ request: vi.fn().mockResolvedValue({ query: { results: {} } }) });
+		const ctx = fakeContext({ mwn: async () => mock as never });
+
+		await smwQuery.handle({ query: '[[Category:Person]]' }, ctx);
+
+		expect(mock.request).toHaveBeenCalledWith(expect.objectContaining({ action: 'ask' }), {
+			method: 'get',
+		});
+	});
 });

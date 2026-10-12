@@ -248,4 +248,18 @@ describe('wikibase-search-entities', () => {
 
 		expect(assertStructuredError(result, 'upstream_failure').message).toContain('wiki down');
 	});
+
+	it('sends the search as a GET', async () => {
+		const { mock, ctx } = contextWith(DOUGLAS_ADAMS);
+
+		await wikibaseSearchEntities.handle(
+			toolArgs(wikibaseSearchEntities, { query: 'Douglas Adams' }),
+			ctx,
+		);
+
+		expect(mock.request).toHaveBeenCalledWith(
+			expect.objectContaining({ action: 'wbsearchentities' }),
+			{ method: 'get' },
+		);
+	});
 });

@@ -2,6 +2,7 @@ import { z } from 'zod';
 import type { CallToolResult } from '@modelcontextprotocol/server';
 import type { Tool } from '../../../runtime/tool.ts';
 import type { ToolContext } from '../../../runtime/context.ts';
+import { readRequest } from '../../../wikis/readRequest.ts';
 import type { TruncationInfo } from '../../../results/truncation.ts';
 import { errorMessage } from '../../../errors/isErrnoException.ts';
 import type { Claims, HiddenValues, RenderedClaims } from './entityFormat.ts';
@@ -83,7 +84,7 @@ export const wikibaseGetEntity: Tool<typeof inputSchema> = {
 		const termLanguage = await resolveLanguage(ctx, language);
 		const mwn = await ctx.mwn();
 		// oxlint-disable-next-line typescript/no-unsafe-type-assertion -- wbgetentities response shape; trusted at this boundary
-		const response = (await mwn.request({
+		const response = (await readRequest(mwn, {
 			action: 'wbgetentities',
 			ids: id,
 			props: 'labels|descriptions|aliases|claims|datatype',

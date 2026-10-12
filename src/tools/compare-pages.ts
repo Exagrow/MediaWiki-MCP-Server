@@ -2,6 +2,7 @@ import { z } from 'zod';
 import type { CallToolResult } from '@modelcontextprotocol/server';
 import type { Tool } from '../runtime/tool.ts';
 import type { ToolContext } from '../runtime/context.ts';
+import { readRequest } from '../wikis/readRequest.ts';
 import { inlineDiffToText } from '../results/diffFormat.ts';
 import { truncateByBytes } from '../results/truncation.ts';
 
@@ -179,7 +180,7 @@ export const comparePages: Tool<typeof inputSchema> = {
 
 		const includeDiff = args.includeDiff ?? true;
 		const mwn = await ctx.mwn();
-		const response = await mwn.request({
+		const response = await readRequest(mwn, {
 			action: 'compare',
 			prop: includeDiff ? 'ids|title|size|timestamp|diff' : 'ids|title|size|diffsize',
 			formatversion: '2',

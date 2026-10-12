@@ -2,6 +2,7 @@ import { z } from 'zod';
 import type { CallToolResult } from '@modelcontextprotocol/server';
 import type { Tool } from '../../../runtime/tool.ts';
 import type { ToolContext } from '../../../runtime/context.ts';
+import { readRequest } from '../../../wikis/readRequest.ts';
 
 const inputSchema = {
 	table: z.string().min(1).describe('Cargo table name. Use cargo-list-tables to discover.'),
@@ -41,7 +42,7 @@ export const cargoDescribeTable: Tool<typeof inputSchema> = {
 
 	async handle({ table }, ctx: ToolContext): Promise<CallToolResult> {
 		const mwn = await ctx.mwn();
-		const raw = await mwn.request({
+		const raw = await readRequest(mwn, {
 			action: 'cargofields',
 			table,
 			format: 'json',

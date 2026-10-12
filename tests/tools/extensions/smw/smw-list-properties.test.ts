@@ -268,4 +268,17 @@ describe('smw-list-properties', () => {
 		const envelope = assertStructuredError(result, 'upstream_failure');
 		expect(envelope.message).toContain('smwbrowse 500');
 	});
+
+	it('sends the browse as a GET', async () => {
+		const mock = createMockMwn({
+			request: vi.fn().mockResolvedValue(smwBrowseResponse([smwBrowseProp('Born_in')])),
+		});
+		const ctx = fakeContext({ mwn: async () => mock as never });
+
+		await smwListProperties.handle({}, ctx);
+
+		expect(mock.request).toHaveBeenCalledWith(expect.objectContaining({ action: 'smwbrowse' }), {
+			method: 'get',
+		});
+	});
 });
