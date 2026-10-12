@@ -9,6 +9,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 ### Added
 
 - `get-page` accepts `content="text"`, which returns the rendered page as readable plain text for reading rather than editing: headings as `#` lines, lists as `-` bullets, table cells joined with ` | `, and edit links, the table of contents and navigation boxes left out. It is cut at the same byte limit as `source` and `html`.
+- `get-page-outline` tool that lists a wiki page's sections without its content, one line each, such as `4 (Alloys), 570 bytes`: the section number (the `section` value `get-page` accepts), the heading as plain text, and the approximate size, which is bytes of wikitext including subsections, to two significant figures. A subsection is indented two spaces per level under its parent. It is the same call as `get-page` with `metadata=true` and `content="none"`, so it makes no request `get-page` does not; an optional `depth` limits how deep the headings go.
 
 ### Fixed
 
