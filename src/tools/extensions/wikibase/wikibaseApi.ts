@@ -1,5 +1,6 @@
 import type { Mwn } from 'mwn';
 import type { ToolContext } from '../../../runtime/context.ts';
+import { readRequest } from '../../../wikis/readRequest.ts';
 import { resolveSiteInfo } from '../../../wikis/siteInfo.ts';
 
 /** IDs per label request: `wbgetentities` accepts 50 from an ordinary account. */
@@ -113,7 +114,7 @@ async function requestLabels(
 	language: string,
 ): Promise<{ entities?: Record<string, EntityLabels> }> {
 	// oxlint-disable-next-line typescript/no-unsafe-type-assertion -- wbgetentities response shape; trusted at this boundary
-	return (await mwn.request({
+	return (await readRequest(mwn, {
 		action: 'wbgetentities',
 		ids: ids.join('|'),
 		props: 'labels',

@@ -2,6 +2,7 @@ import { z } from 'zod';
 import type { CallToolResult } from '@modelcontextprotocol/server';
 import type { Tool } from '../../../runtime/tool.ts';
 import type { ToolContext } from '../../../runtime/context.ts';
+import { readRequest } from '../../../wikis/readRequest.ts';
 import type { TruncationInfo } from '../../../results/truncation.ts';
 
 const HARD_LIMIT = 500;
@@ -67,7 +68,7 @@ export const smwQuery: Tool<typeof inputSchema> = {
 	async handle({ query, limit, continueFrom }, ctx: ToolContext): Promise<CallToolResult> {
 		const merged = mergeQueryParams(query, limit, continueFrom);
 		const mwn = await ctx.mwn();
-		const raw = await mwn.request({
+		const raw = await readRequest(mwn, {
 			action: 'ask',
 			query: merged,
 			format: 'json',

@@ -4,6 +4,7 @@ import type { Mwn } from 'mwn';
 import type { Tool } from '../runtime/tool.ts';
 import type { ToolContext } from '../runtime/context.ts';
 import { buildPageUrl } from '../wikis/utils.ts';
+import { queryInBatches, readPages } from '../wikis/readPages.ts';
 import { contentMaxBytes, truncateByBytes, type TruncationInfo } from '../results/truncation.ts';
 import { sectionContentTruncation } from '../services/sectionMarker.ts';
 
@@ -130,16 +131,18 @@ async function fetchPages(
 		redirectFrom: new Set(),
 	};
 	if (!args.followRedirects) {
-		// mwn.read() defaults to following redirects, which would rewrite the requested
-		// title to the target and break our lookup. Emit the redirect pseudo-page as-is.
-		const response = await mwn.read(args.titles, { rvprop, redirects: false });
+		// readPages() follows redirects unless told not to, which would rewrite the
+		// requested title to the target and break our lookup. Emit the redirect
+		// pseudo-page as-is.
+		const response = await readPages(mwn, args.titles, { rvprop, redirects: false });
 		const pages: ApiPageLike[] = Array.isArray(response) ? response : [response];
 		for (const page of pages) {
 			result.byResolvedTitle.set(page.title, normalisePage(page, ctx));
 		}
 		return result;
 	}
-	const responses = await mwn.massQuery(
+	const responses = await queryInBatches(
+		mwn,
 		{
 			action: 'query',
 			titles: args.titles,

@@ -2,6 +2,7 @@ import { z } from 'zod';
 import type { CallToolResult } from '@modelcontextprotocol/server';
 import type { Tool } from '../../../runtime/tool.ts';
 import type { ToolContext } from '../../../runtime/context.ts';
+import { readRequest } from '../../../wikis/readRequest.ts';
 import type { TruncationInfo } from '../../../results/truncation.ts';
 import { LANGUAGE_CODE, resolveLanguage } from './wikibaseApi.ts';
 
@@ -63,7 +64,7 @@ export const wikibaseSearchEntities: Tool<typeof inputSchema> = {
 		const searchLanguage = await resolveLanguage(ctx, language);
 		const mwn = await ctx.mwn();
 		// oxlint-disable-next-line typescript/no-unsafe-type-assertion -- wbsearchentities response shape; trusted at this boundary
-		const response = (await mwn.request({
+		const response = (await readRequest(mwn, {
 			action: 'wbsearchentities',
 			search: query,
 			language: searchLanguage,

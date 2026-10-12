@@ -2,6 +2,7 @@ import { z } from 'zod';
 import type { CallToolResult } from '@modelcontextprotocol/server';
 import type { Tool } from '../runtime/tool.ts';
 import type { ToolContext } from '../runtime/context.ts';
+import { readRequest } from '../wikis/readRequest.ts';
 import { truncateByBytes } from '../results/truncation.ts';
 
 const DEFAULT_TITLE = 'API';
@@ -45,7 +46,10 @@ export const parseWikitext: Tool<typeof inputSchema> = {
 		ctx: ToolContext,
 	): Promise<CallToolResult> {
 		const mwn = await ctx.mwn();
-		const response = await mwn.request({
+		// A GET unless the wikitext is too long for a URL. That one case still goes
+		// out as a POST, and a wiki that rejects POSTs rejects it: nothing can carry
+		// text that long any other way.
+		const response = await readRequest(mwn, {
 			action: 'parse',
 			text: wikitext,
 			title: title ?? DEFAULT_TITLE,

@@ -498,4 +498,26 @@ describe('compare-pages', () => {
 		expect(text).toContain('Changed: true');
 		expect(text).toContain('Size delta: 0');
 	});
+
+	it('sends the comparison as a GET, which a bot-protected wiki accepts', async () => {
+		const request = vi.fn().mockResolvedValue({ compare: { fromrevid: 1, torevid: 2, body: '' } });
+		const ctx = fakeContext({ mwn: async () => createMockMwn({ request }) as never });
+
+		await comparePages.handle({ fromRevision: 1, toRevision: 2 }, ctx);
+
+		expect(request).toHaveBeenCalledWith(expect.objectContaining({ action: 'compare' }), {
+			method: 'get',
+		});
+	});
+
+	it('sends a comparison of supplied text too long for a URL as a POST', async () => {
+		const request = vi.fn().mockResolvedValue({ compare: { fromrevid: 1, body: '' } });
+		const ctx = fakeContext({ mwn: async () => createMockMwn({ request }) as never });
+
+		await comparePages.handle({ fromRevision: 1, toText: 'a'.repeat(60_000) }, ctx);
+
+		expect(request).toHaveBeenCalledWith(expect.objectContaining({ action: 'compare' }), {
+			method: 'post',
+		});
+	});
 });

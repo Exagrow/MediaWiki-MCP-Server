@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { createMockMwn } from '../helpers/mock-mwn.ts';
+import { revisionsResponse, routeRequest } from '../helpers/revisionsRequest.ts';
 import { fakeContext } from '../helpers/fakeContext.ts';
 import { getPages, BatchContentFormat } from '../../src/tools/get-pages.ts';
 import { dispatch } from '../../src/runtime/dispatcher.ts';
@@ -10,7 +11,7 @@ import {
 	assertStructuredSuccess,
 } from '../helpers/structuredResult.ts';
 
-function massQueryPage(title: string, pageid: number, revid: number, content?: string) {
+function revisionsPage(title: string, pageid: number, revid: number, content?: string) {
 	return {
 		pageid,
 		title,
@@ -24,37 +25,6 @@ function massQueryPage(title: string, pageid: number, revid: number, content?: s
 						...(content !== undefined ? { content } : {}),
 					},
 				},
-			},
-		],
-	};
-}
-
-function massQueryResponse(options: {
-	pages?: unknown[];
-	redirects?: Array<{ from: string; to: string }>;
-	normalized?: Array<{ from: string; to: string }>;
-}): unknown[] {
-	return [
-		{
-			query: {
-				...(options.pages ? { pages: options.pages } : {}),
-				...(options.redirects ? { redirects: options.redirects } : {}),
-				...(options.normalized ? { normalized: options.normalized } : {}),
-			},
-		},
-	];
-}
-
-function readPage(title: string, pageid: number, revid: number, content?: string) {
-	return {
-		pageid,
-		title,
-		revisions: [
-			{
-				revid,
-				timestamp: '2026-04-01T00:00:00Z',
-				contentmodel: 'wikitext',
-				...(content !== undefined ? { content } : {}),
 			},
 		],
 	};
@@ -112,18 +82,18 @@ describe('get-pages', () => {
 		});
 	});
 
-	describe('followRedirects=true (default, via massQuery)', () => {
-		it('returns 3 pages in input order with a single massQuery call', async () => {
-			const massQuery = vi.fn().mockResolvedValue(
-				massQueryResponse({
+	describe('followRedirects=true (default, batched query)', () => {
+		it('returns 3 pages in input order with a single GET request', async () => {
+			const revisions = vi.fn().mockResolvedValue(
+				revisionsResponse({
 					pages: [
-						massQueryPage('Module:Infobox/Person', 2, 102, 'B'),
-						massQueryPage('Module:Infobox', 1, 101, 'A'),
-						massQueryPage('Module:Infobox/Organization', 3, 103, 'C'),
+						revisionsPage('Module:Infobox/Person', 2, 102, 'B'),
+						revisionsPage('Module:Infobox', 1, 101, 'A'),
+						revisionsPage('Module:Infobox/Organization', 3, 103, 'C'),
 					],
 				}),
 			);
-			const mock = createMockMwn({ massQuery });
+			const mock = createMockMwn({ request: routeRequest(revisions) });
 			const ctx = fakeContext({ mwn: async () => mock as never });
 
 			const result = await getPages.handle(
@@ -136,8 +106,9 @@ describe('get-pages', () => {
 				ctx,
 			);
 
-			expect(massQuery).toHaveBeenCalledTimes(1);
-			expect(massQuery).toHaveBeenCalledWith(
+			expect(revisions).toHaveBeenCalledTimes(1);
+			// One argument: no `{ method: 'post' }` option, so mwn sends a query as GET.
+			expect(revisions).toHaveBeenCalledWith(
 				expect.objectContaining({
 					action: 'query',
 					prop: 'revisions',
@@ -145,7 +116,6 @@ describe('get-pages', () => {
 					formatversion: '2',
 					rvslots: 'main',
 				}),
-				'titles',
 			);
 
 			assertStructuredSuccess(result);
@@ -165,16 +135,16 @@ describe('get-pages', () => {
 		});
 
 		it('mixed found + missing: emits found pages + missing array, no isError', async () => {
-			const massQuery = vi.fn().mockResolvedValue(
-				massQueryResponse({
+			const revisions = vi.fn().mockResolvedValue(
+				revisionsResponse({
 					pages: [
-						massQueryPage('Found1', 1, 101, 'X'),
+						revisionsPage('Found1', 1, 101, 'X'),
 						{ pageid: 0, title: 'NotReal', missing: true },
-						massQueryPage('Found2', 2, 102, 'Y'),
+						revisionsPage('Found2', 2, 102, 'Y'),
 					],
 				}),
 			);
-			const mock = createMockMwn({ massQuery });
+			const mock = createMockMwn({ request: routeRequest(revisions) });
 			const ctx = fakeContext({ mwn: async () => mock as never });
 
 			const result = await getPages.handle(
@@ -198,15 +168,15 @@ describe('get-pages', () => {
 		});
 
 		it('all missing: returns empty pages array + missing', async () => {
-			const massQuery = vi.fn().mockResolvedValue(
-				massQueryResponse({
+			const revisions = vi.fn().mockResolvedValue(
+				revisionsResponse({
 					pages: [
 						{ pageid: 0, title: 'A', missing: true },
 						{ pageid: 0, title: 'B', missing: true },
 					],
 				}),
 			);
-			const mock = createMockMwn({ massQuery });
+			const mock = createMockMwn({ request: routeRequest(revisions) });
 			const ctx = fakeContext({ mwn: async () => mock as never });
 
 			const result = await getPages.handle(
@@ -225,12 +195,12 @@ describe('get-pages', () => {
 		});
 
 		it('metadata=true includes revision metadata on each entry', async () => {
-			const massQuery = vi.fn().mockResolvedValue(
-				massQueryResponse({
-					pages: [massQueryPage('Foo', 1, 101, 'body')],
+			const revisions = vi.fn().mockResolvedValue(
+				revisionsResponse({
+					pages: [revisionsPage('Foo', 1, 101, 'body')],
 				}),
 			);
-			const mock = createMockMwn({ massQuery });
+			const mock = createMockMwn({ request: routeRequest(revisions) });
 			const ctx = fakeContext({ mwn: async () => mock as never });
 
 			const result = await getPages.handle(
@@ -257,12 +227,12 @@ describe('get-pages', () => {
 		});
 
 		it('content=none + metadata=true returns metadata only, no source', async () => {
-			const massQuery = vi.fn().mockResolvedValue(
-				massQueryResponse({
-					pages: [massQueryPage('Foo', 1, 101)],
+			const revisions = vi.fn().mockResolvedValue(
+				revisionsResponse({
+					pages: [revisionsPage('Foo', 1, 101)],
 				}),
 			);
-			const mock = createMockMwn({ massQuery });
+			const mock = createMockMwn({ request: routeRequest(revisions) });
 			const ctx = fakeContext({ mwn: async () => mock as never });
 
 			const result = await getPages.handle(
@@ -285,12 +255,12 @@ describe('get-pages', () => {
 		});
 
 		it('duplicate input titles emit page once', async () => {
-			const massQuery = vi.fn().mockResolvedValue(
-				massQueryResponse({
-					pages: [massQueryPage('Foo', 1, 101, 'body')],
+			const revisions = vi.fn().mockResolvedValue(
+				revisionsResponse({
+					pages: [revisionsPage('Foo', 1, 101, 'body')],
 				}),
 			);
-			const mock = createMockMwn({ massQuery });
+			const mock = createMockMwn({ request: routeRequest(revisions) });
 			const ctx = fakeContext({ mwn: async () => mock as never });
 
 			const result = await getPages.handle(
@@ -310,9 +280,9 @@ describe('get-pages', () => {
 			expect(data.pages[0]).not.toHaveProperty('requestedTitle');
 		});
 
-		it('mwn.massQuery throws → isError with wrapped message via dispatcher', async () => {
-			const massQuery = vi.fn().mockRejectedValue(new Error('API error'));
-			const mock = createMockMwn({ massQuery });
+		it('a failed request throws → isError with wrapped message via dispatcher', async () => {
+			const revisions = vi.fn().mockRejectedValue(new Error('API error'));
+			const mock = createMockMwn({ request: routeRequest(revisions) });
 			const ctx = fakeContext({ mwn: async () => mock as never });
 
 			const result = await dispatch(
@@ -331,13 +301,13 @@ describe('get-pages', () => {
 		});
 
 		it('redirect followed: entry has redirectedFrom and target title', async () => {
-			const massQuery = vi.fn().mockResolvedValue(
-				massQueryResponse({
+			const revisions = vi.fn().mockResolvedValue(
+				revisionsResponse({
 					redirects: [{ from: 'Src', to: 'Tgt' }],
-					pages: [massQueryPage('Tgt', 42, 9001, 'target body')],
+					pages: [revisionsPage('Tgt', 42, 9001, 'target body')],
 				}),
 			);
-			const mock = createMockMwn({ massQuery });
+			const mock = createMockMwn({ request: routeRequest(revisions) });
 			const ctx = fakeContext({ mwn: async () => mock as never });
 
 			const result = await getPages.handle(
@@ -362,13 +332,13 @@ describe('get-pages', () => {
 		});
 
 		it('normalization only: no redirectedFrom', async () => {
-			const massQuery = vi.fn().mockResolvedValue(
-				massQueryResponse({
+			const revisions = vi.fn().mockResolvedValue(
+				revisionsResponse({
 					normalized: [{ from: 'foo', to: 'Foo' }],
-					pages: [massQueryPage('Foo', 1, 101, 'body')],
+					pages: [revisionsPage('Foo', 1, 101, 'body')],
 				}),
 			);
-			const mock = createMockMwn({ massQuery });
+			const mock = createMockMwn({ request: routeRequest(revisions) });
 			const ctx = fakeContext({ mwn: async () => mock as never });
 
 			const result = await getPages.handle(
@@ -392,14 +362,14 @@ describe('get-pages', () => {
 		});
 
 		it('normalized-then-redirect chain: redirectedFrom is the requested title', async () => {
-			const massQuery = vi.fn().mockResolvedValue(
-				massQueryResponse({
+			const revisions = vi.fn().mockResolvedValue(
+				revisionsResponse({
 					normalized: [{ from: 'main page', to: 'Main Page' }],
 					redirects: [{ from: 'Main Page', to: 'Target' }],
-					pages: [massQueryPage('Target', 5, 500, 'target')],
+					pages: [revisionsPage('Target', 5, 500, 'target')],
 				}),
 			);
-			const mock = createMockMwn({ massQuery });
+			const mock = createMockMwn({ request: routeRequest(revisions) });
 			const ctx = fakeContext({ mwn: async () => mock as never });
 
 			const result = await getPages.handle(
@@ -423,13 +393,13 @@ describe('get-pages', () => {
 		});
 
 		it('redirect to missing target: requested title reported as missing', async () => {
-			const massQuery = vi.fn().mockResolvedValue(
-				massQueryResponse({
+			const revisions = vi.fn().mockResolvedValue(
+				revisionsResponse({
 					redirects: [{ from: 'BrokenRedirect', to: 'Ghost' }],
 					pages: [{ pageid: 0, title: 'Ghost', missing: true }],
 				}),
 			);
-			const mock = createMockMwn({ massQuery });
+			const mock = createMockMwn({ request: routeRequest(revisions) });
 			const ctx = fakeContext({ mwn: async () => mock as never });
 
 			const result = await getPages.handle(
@@ -448,16 +418,16 @@ describe('get-pages', () => {
 		});
 
 		it('two requested titles redirect to same target: emit once', async () => {
-			const massQuery = vi.fn().mockResolvedValue(
-				massQueryResponse({
+			const revisions = vi.fn().mockResolvedValue(
+				revisionsResponse({
 					redirects: [
 						{ from: 'Alias1', to: 'Target' },
 						{ from: 'Alias2', to: 'Target' },
 					],
-					pages: [massQueryPage('Target', 1, 101, 'body')],
+					pages: [revisionsPage('Target', 1, 101, 'body')],
 				}),
 			);
-			const mock = createMockMwn({ massQuery });
+			const mock = createMockMwn({ request: routeRequest(revisions) });
 			const ctx = fakeContext({ mwn: async () => mock as never });
 
 			const result = await getPages.handle(
@@ -478,12 +448,14 @@ describe('get-pages', () => {
 		});
 	});
 
-	describe('followRedirects=false (via mwn.read)', () => {
-		it('passes redirects: false to mwn.read and emits pseudo-page wikitext under requested title', async () => {
-			const read = vi
-				.fn()
-				.mockResolvedValue([readPage('Main Page', 7, 700, '#REDIRECT [[Target]]')]);
-			const mock = createMockMwn({ read });
+	describe('followRedirects=false (single read)', () => {
+		it('passes redirects: false to the read and emits pseudo-page wikitext under requested title', async () => {
+			const revisions = vi.fn().mockResolvedValue(
+				revisionsResponse({
+					pages: [revisionsPage('Main Page', 7, 700, '#REDIRECT [[Target]]')],
+				}),
+			);
+			const mock = createMockMwn({ request: routeRequest(revisions) });
 			const ctx = fakeContext({ mwn: async () => mock as never });
 
 			const result = await getPages.handle(
@@ -496,10 +468,9 @@ describe('get-pages', () => {
 				ctx,
 			);
 
-			expect(read).toHaveBeenCalledTimes(1);
-			expect(read).toHaveBeenCalledWith(
-				['Main Page'],
-				expect.objectContaining({ redirects: false }),
+			expect(revisions).toHaveBeenCalledTimes(1);
+			expect(revisions).toHaveBeenCalledWith(
+				expect.objectContaining({ titles: ['Main Page'], redirects: false }),
 			);
 
 			const text = assertStructuredSuccess(result);
@@ -512,9 +483,9 @@ describe('get-pages', () => {
 			expect(data.pages[0]).not.toHaveProperty('requestedTitle');
 		});
 
-		it('mwn.read throws → isError with wrapped message via dispatcher', async () => {
-			const read = vi.fn().mockRejectedValue(new Error('read error'));
-			const mock = createMockMwn({ read });
+		it('a failed read throws → isError with wrapped message via dispatcher', async () => {
+			const revisions = vi.fn().mockRejectedValue(new Error('read error'));
+			const mock = createMockMwn({ request: routeRequest(revisions) });
 			const ctx = fakeContext({ mwn: async () => mock as never });
 
 			const result = await dispatch(
@@ -538,15 +509,15 @@ describe('get-pages', () => {
 			vi.stubEnv('MCP_CONTENT_MAX_BYTES', '1000');
 			const big = 'x'.repeat(1001);
 			const small = 'tiny body';
-			const massQuery = vi.fn().mockResolvedValue(
-				massQueryResponse({
-					pages: [massQueryPage('Big', 1, 10, big), massQueryPage('Small', 2, 20, small)],
+			const revisions = vi.fn().mockResolvedValue(
+				revisionsResponse({
+					pages: [revisionsPage('Big', 1, 10, big), revisionsPage('Small', 2, 20, small)],
 				}),
 			);
 			const request = vi.fn().mockResolvedValueOnce({
 				parse: { sections: [{ line: 'Overview', index: '1', level: '2' }] },
 			});
-			const mock = createMockMwn({ massQuery, request });
+			const mock = createMockMwn({ request: routeRequest(revisions, request) });
 			const ctx = fakeContext({
 				mwn: async () => mock as never,
 				sections: new SectionServiceImpl(),
@@ -592,18 +563,18 @@ describe('get-pages', () => {
 		// content-truncated marker and the outline behind it is fetched once.
 		it('cuts only the first page and names the rest', async () => {
 			vi.stubEnv('MCP_CONTENT_MAX_BYTES', '1000');
-			const massQuery = vi.fn().mockResolvedValue(
-				massQueryResponse({
+			const revisions = vi.fn().mockResolvedValue(
+				revisionsResponse({
 					pages: [
-						massQueryPage('BigA', 1, 10, 'a'.repeat(1200)),
-						massQueryPage('BigB', 2, 20, 'b'.repeat(700)),
+						revisionsPage('BigA', 1, 10, 'a'.repeat(1200)),
+						revisionsPage('BigB', 2, 20, 'b'.repeat(700)),
 					],
 				}),
 			);
 			const request = vi
 				.fn()
 				.mockResolvedValue({ parse: { sections: [{ line: 'H', index: '1' }] } });
-			const mock = createMockMwn({ massQuery, request });
+			const mock = createMockMwn({ request: routeRequest(revisions, request) });
 			const ctx = fakeContext({
 				mwn: async () => mock as never,
 				sections: new SectionServiceImpl(),
@@ -630,13 +601,13 @@ describe('get-pages', () => {
 		it('does not emit a truncation for content at exactly the byte cap', async () => {
 			vi.stubEnv('MCP_CONTENT_MAX_BYTES', '1000');
 			const exact = 'y'.repeat(1000);
-			const massQuery = vi.fn().mockResolvedValue(
-				massQueryResponse({
-					pages: [massQueryPage('Exact', 1, 10, exact)],
+			const revisions = vi.fn().mockResolvedValue(
+				revisionsResponse({
+					pages: [revisionsPage('Exact', 1, 10, exact)],
 				}),
 			);
 			const request = vi.fn();
-			const mock = createMockMwn({ massQuery, request });
+			const mock = createMockMwn({ request: routeRequest(revisions, request) });
 			const ctx = fakeContext({ mwn: async () => mock as never });
 
 			const result = await getPages.handle(
@@ -667,10 +638,10 @@ describe('get-pages response budget', () => {
 	// call rather than at module load.
 	function pagesOfSize(sizes: (number | undefined)[], budget = '1000') {
 		vi.stubEnv('MCP_CONTENT_MAX_BYTES', budget);
-		const massQuery = vi.fn().mockResolvedValue(
-			massQueryResponse({
+		const revisions = vi.fn().mockResolvedValue(
+			revisionsResponse({
 				pages: sizes.map((size, i) =>
-					massQueryPage(
+					revisionsPage(
 						`P${i + 1}`,
 						i + 1,
 						100 + i,
@@ -680,7 +651,7 @@ describe('get-pages response budget', () => {
 			}),
 		);
 		const request = vi.fn().mockResolvedValue({ parse: { sections: [] } });
-		const mock = createMockMwn({ massQuery, request });
+		const mock = createMockMwn({ request: routeRequest(revisions, request) });
 		return fakeContext({ mwn: async () => mock as never, sections: new SectionServiceImpl() });
 	}
 
@@ -728,17 +699,17 @@ describe('get-pages response budget', () => {
 	// different facts, and each has its own channel.
 	it('reports a missing page and an omitted page through their own channels', async () => {
 		vi.stubEnv('MCP_CONTENT_MAX_BYTES', '1000');
-		const massQuery = vi.fn().mockResolvedValue(
-			massQueryResponse({
+		const revisions = vi.fn().mockResolvedValue(
+			revisionsResponse({
 				pages: [
-					massQueryPage('P1', 1, 100, 'x'.repeat(900)),
+					revisionsPage('P1', 1, 100, 'x'.repeat(900)),
 					{ title: 'Gone', missing: true },
-					massQueryPage('P3', 3, 300, 'x'.repeat(900)),
+					revisionsPage('P3', 3, 300, 'x'.repeat(900)),
 				],
 			}),
 		);
 		const request = vi.fn().mockResolvedValue({ parse: { sections: [] } });
-		const mock = createMockMwn({ massQuery, request });
+		const mock = createMockMwn({ request: routeRequest(revisions, request) });
 		const ctx = fakeContext({ mwn: async () => mock as never, sections: new SectionServiceImpl() });
 
 		const text = assertStructuredSuccess(await read(ctx, ['P1', 'Gone', 'P3']));
@@ -777,17 +748,17 @@ describe('get-pages response budget', () => {
 	// under the name the caller used, or it cannot account for what it asked for.
 	it('names an omitted page the way the caller named it', async () => {
 		vi.stubEnv('MCP_CONTENT_MAX_BYTES', '1000');
-		const massQuery = vi.fn().mockResolvedValue(
-			massQueryResponse({
+		const revisions = vi.fn().mockResolvedValue(
+			revisionsResponse({
 				pages: [
-					massQueryPage('P1', 1, 100, 'x'.repeat(900)),
-					massQueryPage('Target', 2, 200, 'x'.repeat(900)),
+					revisionsPage('P1', 1, 100, 'x'.repeat(900)),
+					revisionsPage('Target', 2, 200, 'x'.repeat(900)),
 				],
 				redirects: [{ from: 'Shortcut', to: 'Target' }],
 			}),
 		);
 		const request = vi.fn().mockResolvedValue({ parse: { sections: [] } });
-		const mock = createMockMwn({ massQuery, request });
+		const mock = createMockMwn({ request: routeRequest(revisions, request) });
 		const ctx = fakeContext({ mwn: async () => mock as never, sections: new SectionServiceImpl() });
 
 		const text = assertStructuredSuccess(await read(ctx, ['P1', 'Shortcut']));

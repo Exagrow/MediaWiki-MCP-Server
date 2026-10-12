@@ -617,6 +617,18 @@ describe('wikibase-get-entity', () => {
 			'To read one property in full, call wikibase-get-entity again with property=<P-id>.',
 		);
 	});
+
+	it('sends the entity read and the label lookup as GETs', async () => {
+		const mock = routedMwn(Q42);
+		const ctx = fakeContext({ mwn: async () => mock as never });
+
+		await wikibaseGetEntity.handle(toolArgs(wikibaseGetEntity, { entityId: 'Q42' }), ctx);
+
+		expect(mock.request.mock.calls.map((call) => call[1])).toEqual([
+			{ method: 'get' },
+			{ method: 'get' },
+		]);
+	});
 });
 
 // What the wiki answers when it does not recognise the languages value: a

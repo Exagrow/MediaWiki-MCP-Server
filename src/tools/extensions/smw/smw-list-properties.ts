@@ -2,6 +2,7 @@ import { z } from 'zod';
 import type { CallToolResult } from '@modelcontextprotocol/server';
 import type { Tool } from '../../../runtime/tool.ts';
 import type { ToolContext } from '../../../runtime/context.ts';
+import { readRequest } from '../../../wikis/readRequest.ts';
 import type { TruncationInfo } from '../../../results/truncation.ts';
 
 const DEFAULT_LIMIT = 50;
@@ -77,7 +78,7 @@ export const smwListProperties: Tool<typeof inputSchema> = {
 		};
 
 		const mwn = await ctx.mwn();
-		const raw = await mwn.request({
+		const raw = await readRequest(mwn, {
 			action: 'smwbrowse',
 			browse: 'property',
 			format: 'json',
