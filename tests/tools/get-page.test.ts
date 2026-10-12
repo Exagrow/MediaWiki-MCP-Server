@@ -377,6 +377,41 @@ describe('get-page', () => {
 		expect(text).toContain('Sections:\n- 0 (Lead)\n- 1 (History)\n- 2 (Background)');
 	});
 
+	// The sized lines belong to get-page-outline. get-page lists the short
+	// "<index> (<heading>)" form however much the API reports.
+	it('metadata=true keeps the short section lines even when byte offsets and size are known', async () => {
+		const mock = createMockMwn({
+			read: vi.fn().mockResolvedValue({
+				pageid: 1,
+				title: 'Test Page',
+				revisions: [
+					{ revid: 42, timestamp: '2026-01-01T00:00:00Z', contentmodel: 'wikitext', size: 1000 },
+				],
+			}),
+			request: vi.fn().mockResolvedValue({
+				parse: {
+					sections: [
+						{ line: 'History', number: '1', index: '1', level: '2', byteoffset: 100 },
+						{ line: 'Early <i>years</i>', number: '1.1', index: '2', level: '3', byteoffset: 300 },
+					],
+				},
+			}),
+		});
+		const ctx = fakeContext({
+			mwn: async () => mock as never,
+			sections: new SectionServiceImpl(),
+		});
+
+		const result = await getPage.handle(
+			{ title: 'Test Page', content: ContentFormat.none, metadata: true },
+			ctx,
+		);
+
+		expect(assertStructuredSuccess(result)).toContain(
+			'Sections:\n- 0 (Lead)\n- 1 (History)\n- 2 (Early <i>years</i>)\nURL:',
+		);
+	});
+
 	it('attaches content-truncated truncation when source exceeds the byte cap', async () => {
 		const big = 'x'.repeat(75001);
 		const mock = createMockMwn({
