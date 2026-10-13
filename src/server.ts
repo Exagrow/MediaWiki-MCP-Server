@@ -23,6 +23,9 @@ Writes, deletes, and uploads act as whichever identity the deployment provides: 
 
 Tool errors fall into seven categories: \`not_found\`, \`permission_denied\`, \`invalid_input\`, \`conflict\`, \`authentication\`, \`rate_limited\`, and \`upstream_failure\`. Reads that exceed a per-call cap return a truncation marker describing what was returned and how to fetch the rest.`;
 
+// Exported so an embedding server can append to the instructions instead of rewriting them.
+export { SERVER_INSTRUCTIONS };
+
 // How a transport hands change events to clients that cannot receive them as
 // unsolicited pushes. The stdio entry rewrites a live connection's outbound
 // change notifications onto its subscriptions/listen streams, so the default
@@ -36,6 +39,18 @@ export interface ChangePublisher {
 
 export interface CreateServerOptions {
 	publisher?: ChangePublisher;
+	// Fields override the identity read from server.json, so an embedding server
+	// can identify as itself.
+	serverInfo?: {
+		name?: string;
+		title?: string;
+		version?: string;
+		description?: string;
+	};
+	// Replaces SERVER_INSTRUCTIONS, which is exported for callers that append.
+	instructions?: string;
+	// Called with each standard tool's name; a tool it rejects is never registered.
+	toolFilter?: (toolName: string) => boolean;
 }
 
 // Everything cacheable here changes only when a reconcile pass runs (a wiki is
@@ -52,10 +67,10 @@ export const createServer = async (
 ): Promise<McpServer> => {
 	const server = new McpServer(
 		{
-			name: SERVER_NAME,
-			title: serverInfo.title,
-			version: serverInfo.version,
-			description: serverInfo.description,
+			name: options.serverInfo?.name ?? SERVER_NAME,
+			title: options.serverInfo?.title ?? serverInfo.title,
+			version: options.serverInfo?.version ?? serverInfo.version,
+			description: options.serverInfo?.description ?? serverInfo.description,
 		},
 		{
 			capabilities: {
@@ -66,7 +81,7 @@ export const createServer = async (
 					listChanged: true,
 				},
 			},
-			instructions: SERVER_INSTRUCTIONS,
+			instructions: options.instructions ?? SERVER_INSTRUCTIONS,
 			cacheHints: {
 				'tools/list': CACHE_HINT,
 				'resources/list': CACHE_HINT,
@@ -103,7 +118,7 @@ export const createServer = async (
 		publisher.toolsChanged();
 	};
 
-	const registered = registerAllTools(server, reconcile, ctx);
+	const registered = registerAllTools(server, reconcile, ctx, options.toolFilter);
 	for (const [name, tool] of registered) {
 		tools.set(name, tool);
 	}

@@ -252,3 +252,36 @@ describe('registerAllTools — per-wiki readOnly', () => {
 		}
 	});
 });
+
+describe('registerAllTools toolFilter', () => {
+	function registerWith(toolFilter?: (toolName: string) => boolean): Map<string, RegisteredTool> {
+		const server = new McpServer({ name: 'test', version: '0.0.0' });
+		return registerAllTools(server, async () => {}, fakeContext(), toolFilter);
+	}
+
+	it('registers every tool when no filter is given', () => {
+		const names = [...registerWith().keys()];
+		expect(names).toContain('get-page');
+		expect(names).toContain('oauth-status');
+		expect(names).toContain('add-wiki');
+	});
+
+	it('never registers a tool the filter rejects', () => {
+		const names = [...registerWith((name) => !name.startsWith('oauth-')).keys()];
+		expect(names).not.toContain('oauth-status');
+		expect(names).not.toContain('oauth-logout');
+		expect(names).toContain('get-page');
+	});
+
+	it('applies the filter to the wiki-management tools too', () => {
+		const names = [...registerWith((name) => name !== 'add-wiki').keys()];
+		expect(names).not.toContain('add-wiki');
+		expect(names).toContain('remove-wiki');
+	});
+
+	it('keeps the registered set identical to the unfiltered set minus the rejected names', () => {
+		const all = [...registerWith().keys()];
+		const filtered = [...registerWith((name) => name !== 'get-page').keys()];
+		expect(filtered).toEqual(all.filter((name) => name !== 'get-page'));
+	});
+});
