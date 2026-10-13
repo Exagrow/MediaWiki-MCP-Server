@@ -501,6 +501,77 @@ describe('get-page', () => {
 		expect(text).toContain('  Sections:\n  - 0 (Lead)\n  - 1 (Heading)');
 	});
 
+	it('returns rendered HTML converted to plain text for ContentFormat.text', async () => {
+		const request = vi.fn().mockResolvedValue({
+			parse: {
+				text: '<h2>History<span class="mw-editsection">[edit]</span></h2><p>Born &amp; raised.</p><ul><li>One</li></ul>',
+			},
+		});
+		const mock = createMockMwn({ request });
+		const ctx = fakeContext({ mwn: async () => mock as never });
+
+		const result = await getPage.handle(
+			{ title: 'Test Page', content: ContentFormat.text, metadata: false },
+			ctx,
+		);
+
+		const text = assertStructuredSuccess(result);
+		expect(text).toContain('Text:\n\n## History\n\nBorn & raised.\n\n- One');
+		expect(text).not.toContain('<p>');
+		expect(text).not.toContain('[edit]');
+		expect(text).not.toContain('HTML:');
+		expect(request).toHaveBeenCalledWith(
+			expect.objectContaining({ action: 'parse', page: 'Test Page', prop: 'text' }),
+		);
+	});
+
+	it('attaches content-truncated truncation when plain text exceeds the byte cap', async () => {
+		const bigHtml = '<p>' + 'x'.repeat(85000) + '</p>';
+		const request = vi
+			.fn()
+			.mockResolvedValueOnce({ parse: { text: bigHtml } })
+			.mockResolvedValueOnce({
+				parse: { sections: [{ line: 'Heading', index: '1', level: '2' }] },
+			});
+		const mock = createMockMwn({ request });
+		const ctx = fakeContext({
+			mwn: async () => mock as never,
+			sections: new SectionServiceImpl(),
+		});
+
+		const result = await getPage.handle(
+			{ title: 'Huge', content: ContentFormat.text, metadata: false },
+			ctx,
+		);
+
+		const text = assertStructuredSuccess(result);
+		expect(text).toMatch(/Text:\n\nx+/);
+		expect(text).toContain('Truncation:');
+		expect(text).toContain('  Reason: content-truncated');
+		expect(text).toContain('  Returned bytes: 75000');
+		expect(text).toContain('  Item noun: text');
+		expect(text).toContain('  Sections:\n  - 0 (Lead)\n  - 1 (Heading)');
+	});
+
+	it('forwards section as parse section for text content', async () => {
+		const request = vi.fn().mockResolvedValue({
+			parse: { text: '<p>Section text</p>' },
+		});
+		const mock = createMockMwn({ request });
+		const ctx = fakeContext({ mwn: async () => mock as never });
+
+		const result = await getPage.handle(
+			{ title: 'Test Page', content: ContentFormat.text, metadata: false, section: 1 },
+			ctx,
+		);
+
+		const text = assertStructuredSuccess(result);
+		expect(text).toContain('Text: Section text');
+		expect(request).toHaveBeenCalledWith(
+			expect.objectContaining({ action: 'parse', page: 'Test Page', section: 1 }),
+		);
+	});
+
 	// A caller that already passed section=N cannot narrow by passing it again,
 	// so the marker names that section's own subsections instead of the outline
 	// of a page it did not ask for.

@@ -9,6 +9,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 ### Added
 
 - The package can now be imported as a library: `createServer` and the pieces it needs are exported from the package's main entry, with type declarations, so another MCP server can build the standard wiki tools for a configuration it supplies and attach them to its own transport. `createServer` takes `serverInfo` to name the server, `instructions` to replace the default instructions, and `toolFilter` to leave standard tools out. See [docs/embedding.md](docs/embedding.md).
+- `get-page` accepts `content="text"`, which returns the rendered page as readable plain text for reading rather than editing: headings as `#` lines, lists as `-` bullets, table cells joined with ` | `, and edit links, the table of contents and navigation boxes left out. It is cut at the same byte limit as `source` and `html`.
 
 ### Changed
 
