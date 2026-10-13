@@ -377,6 +377,41 @@ describe('get-page', () => {
 		expect(text).toContain('Sections:\n- 0 (Lead)\n- 1 (History)\n- 2 (Background)');
 	});
 
+	// The sized lines belong to get-page-outline. get-page lists the short
+	// "<index> (<heading>)" form however much the API reports.
+	it('metadata=true keeps the short section lines even when byte offsets and size are known', async () => {
+		const mock = createMockMwn({
+			read: vi.fn().mockResolvedValue({
+				pageid: 1,
+				title: 'Test Page',
+				revisions: [
+					{ revid: 42, timestamp: '2026-01-01T00:00:00Z', contentmodel: 'wikitext', size: 1000 },
+				],
+			}),
+			request: vi.fn().mockResolvedValue({
+				parse: {
+					sections: [
+						{ line: 'History', number: '1', index: '1', level: '2', byteoffset: 100 },
+						{ line: 'Early <i>years</i>', number: '1.1', index: '2', level: '3', byteoffset: 300 },
+					],
+				},
+			}),
+		});
+		const ctx = fakeContext({
+			mwn: async () => mock as never,
+			sections: new SectionServiceImpl(),
+		});
+
+		const result = await getPage.handle(
+			{ title: 'Test Page', content: ContentFormat.none, metadata: true },
+			ctx,
+		);
+
+		expect(assertStructuredSuccess(result)).toContain(
+			'Sections:\n- 0 (Lead)\n- 1 (History)\n- 2 (Early <i>years</i>)\nURL:',
+		);
+	});
+
 	it('attaches content-truncated truncation when source exceeds the byte cap', async () => {
 		const big = 'x'.repeat(75001);
 		const mock = createMockMwn({
@@ -733,5 +768,182 @@ describe('get-page', () => {
 		expect(mock.read).toHaveBeenCalledTimes(1);
 		expect(text).toContain('Page ID: 1');
 		expect(text).toContain('HTML: <p>Hello</p>');
+	});
+
+	describe('section given as a heading', () => {
+		const outline = [
+			{ index: '1', level: 2, line: 'Chemistry', editable: true },
+			{ index: '2', level: 3, line: 'Alloys', editable: true },
+			{ index: '3', level: 2, line: '<i>Further Reading</i>', editable: true },
+			{ index: 'T-1', level: 2, line: 'Transcluded', editable: false },
+			{ index: '4', level: 2, line: 'Trivia', editable: true },
+			{ index: '5', level: 2, line: 'Fish &amp; Chips', editable: true },
+			{ index: '6', level: 2, line: 'trivia', editable: true },
+		];
+
+		function setup(request = vi.fn().mockResolvedValue({ parse: { text: '<p>Body</p>' } })) {
+			const read = vi.fn().mockResolvedValue({
+				pageid: 1,
+				title: 'Copper',
+				revisions: [
+					{
+						revid: 42,
+						timestamp: '2026-01-01T00:00:00Z',
+						contentmodel: 'wikitext',
+						size: 10,
+						content: 'Section body',
+					},
+				],
+			});
+			const list = vi.fn().mockResolvedValue(outline);
+			const mock = createMockMwn({ read, request });
+			const ctx = fakeContext({
+				mwn: async () => mock as never,
+				sections: { list, listInSource: vi.fn() },
+			});
+			return { read, request, list, ctx };
+		}
+
+		const base = { title: 'Copper', content: ContentFormat.source, metadata: false } as const;
+
+		it('reads the section a heading names, ignoring case and surrounding whitespace', async () => {
+			const { read, list, ctx } = setup();
+
+			const result = await getPage.handle({ ...base, section: '  alloys ' }, ctx);
+
+			assertStructuredSuccess(result);
+			expect(list).toHaveBeenCalledWith(expect.anything(), 'Copper');
+			expect(read).toHaveBeenCalledWith('Copper', expect.objectContaining({ rvsection: 2 }));
+		});
+
+		it('matches a heading with markup by its plain text', async () => {
+			const { read, ctx } = setup();
+
+			await getPage.handle({ ...base, section: 'further reading' }, ctx);
+			expect(read).toHaveBeenLastCalledWith('Copper', expect.objectContaining({ rvsection: 3 }));
+
+			await getPage.handle({ ...base, section: 'Fish & Chips' }, ctx);
+			expect(read).toHaveBeenLastCalledWith('Copper', expect.objectContaining({ rvsection: 5 }));
+		});
+
+		it('returns not_found with the outline when no heading matches', async () => {
+			const { read, ctx } = setup();
+
+			const result = await getPage.handle({ ...base, section: 'No Such Section' }, ctx);
+
+			const envelope = assertStructuredError(result, 'not_found');
+			expect(envelope.message).toBe(
+				'Page "Copper" has no section headed "No Such Section". Sections: 0 (Lead); 1 (Chemistry); 2 (Alloys); 3 (<i>Further Reading</i>); 4 (Trivia); 5 (Fish &amp; Chips); 6 (trivia)',
+			);
+			expect(read).not.toHaveBeenCalled();
+		});
+
+		it('returns invalid_input naming the numbers when a heading matches more than one section', async () => {
+			const { read, ctx } = setup();
+
+			const result = await getPage.handle({ ...base, section: 'Trivia' }, ctx);
+
+			const envelope = assertStructuredError(result, 'invalid_input');
+			expect(envelope.message).toBe(
+				'Heading "Trivia" matches 2 sections on page "Copper": 4 (Trivia); 6 (trivia). Pass the section number to choose one.',
+			);
+			expect(read).not.toHaveBeenCalled();
+		});
+
+		it('does not match a transcluded heading', async () => {
+			const { ctx } = setup();
+
+			const result = await getPage.handle({ ...base, section: 'Transcluded' }, ctx);
+
+			assertStructuredError(result, 'not_found');
+		});
+
+		it('treats a numeric string as that section number without listing sections', async () => {
+			const { read, list, ctx } = setup();
+
+			await getPage.handle({ ...base, section: ' 3 ' }, ctx);
+
+			expect(list).not.toHaveBeenCalled();
+			expect(read).toHaveBeenCalledWith('Copper', expect.objectContaining({ rvsection: 3 }));
+		});
+
+		it('rejects an empty or blank heading', async () => {
+			const { read, list, ctx } = setup();
+
+			for (const section of ['', '   ']) {
+				const result = await getPage.handle({ ...base, section }, ctx);
+				const envelope = assertStructuredError(result, 'invalid_input');
+				expect(envelope.message).toContain('section must not be empty');
+			}
+			expect(list).not.toHaveBeenCalled();
+			expect(read).not.toHaveBeenCalled();
+		});
+
+		it('resolves a heading to a number for html content, which makes no revisions read', async () => {
+			const { read, request, list, ctx } = setup();
+
+			const result = await getPage.handle(
+				{ ...base, content: ContentFormat.html, section: 'Alloys' },
+				ctx,
+			);
+
+			assertStructuredSuccess(result);
+			expect(read).not.toHaveBeenCalled();
+			expect(list).toHaveBeenCalledTimes(1);
+			expect(request).toHaveBeenCalledWith(
+				expect.objectContaining({ action: 'parse', page: 'Copper', section: 2 }),
+			);
+		});
+
+		it('fetches the section list once when a heading is given with metadata=true', async () => {
+			const { read, list, ctx } = setup();
+
+			const result = await getPage.handle({ ...base, metadata: true, section: 'Chemistry' }, ctx);
+
+			const text = assertStructuredSuccess(result);
+			expect(list).toHaveBeenCalledTimes(1);
+			expect(text).toContain('1 (Chemistry)');
+			expect(read).toHaveBeenCalledWith('Copper', expect.objectContaining({ rvsection: 1 }));
+		});
+
+		// The entries carry byte offsets here, so a sized list is possible; the
+		// error still lists short lines, and a heading narrows the read, which
+		// is not sized.
+		it('lists sections with the short lines even when byte offsets are known', async () => {
+			const { ctx, list } = setup();
+			list.mockResolvedValue(
+				outline.map((e, i) =>
+					e.editable ? { ...e, byteOffset: 100 * (i + 1), number: String(i + 1) } : e,
+				),
+			);
+
+			const notFound = await getPage.handle({ ...base, section: 'No Such Section' }, ctx);
+			const ambiguous = await getPage.handle({ ...base, section: 'Trivia' }, ctx);
+			const withMetadata = await getPage.handle(
+				{ ...base, metadata: true, section: 'Chemistry' },
+				ctx,
+			);
+
+			expect(assertStructuredError(notFound, 'not_found').message).toContain(
+				'Sections: 0 (Lead); 1 (Chemistry); 2 (Alloys);',
+			);
+			expect(assertStructuredError(ambiguous, 'invalid_input').message).not.toContain('bytes');
+			const text = assertStructuredSuccess(withMetadata);
+			expect(text).toContain('- 1 (Chemistry)\n');
+			expect(text).not.toContain('bytes\n- ');
+			expect(list).toHaveBeenCalledTimes(3);
+		});
+
+		it('rejects a heading with content="none" before reading anything', async () => {
+			const { list, ctx } = setup();
+
+			const result = await getPage.handle(
+				{ ...base, content: ContentFormat.none, metadata: true, section: 'Chemistry' },
+				ctx,
+			);
+
+			assertStructuredError(result, 'invalid_input');
+			expect(list).not.toHaveBeenCalled();
+		});
 	});
 });

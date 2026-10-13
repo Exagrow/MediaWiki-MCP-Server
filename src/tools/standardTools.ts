@@ -2,6 +2,7 @@ import type { Tool } from '../runtime/tool.ts';
 import { extensionPacks } from './extensions/index.ts';
 
 import { getPage } from './get-page.ts';
+import { getPageOutline } from './get-page-outline.ts';
 import { getPages } from './get-pages.ts';
 import { getPageHistory } from './get-page-history.ts';
 import { getRecentChanges } from './get-recent-changes.ts';
@@ -41,6 +42,7 @@ import { oauthLogout } from './oauth-logout.ts';
 // oxlint-disable-next-line typescript/no-explicit-any
 export const standardTools: Tool<any>[] = [
 	getPage,
+	getPageOutline,
 	getPages,
 	getPageHistory,
 	getRecentChanges,
