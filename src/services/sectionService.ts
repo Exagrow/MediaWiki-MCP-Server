@@ -132,22 +132,22 @@ export function plainHeading(html: string): string {
 		.trim();
 }
 
-// A size to two significant figures, as a plain integer with a `B` unit and no
-// space: 159429 is "160000B", 1162 is "1200B", 67 is "67B". Halves round away
-// from zero (Math.round, on a count that is never negative), so 995 is "1000B".
+// A size to two significant figures, as a plain integer followed by the word
+// bytes: 159429 is "160000 bytes", 1162 is "1200 bytes", 67 is "67 bytes". Halves round away
+// from zero (Math.round, on a count that is never negative), so 995 is "1000 bytes".
 // The figure is a guide to scale, not a measurement.
 export function formatApproxBytes(bytes: number): string {
 	if (bytes < 100) {
-		return `${bytes}B`;
+		return `${bytes} bytes`;
 	}
 	const unit = 10 ** (String(Math.trunc(bytes)).length - 2);
-	return `${Math.round(bytes / unit) * unit}B`;
+	return `${Math.round(bytes / unit) * unit} bytes`;
 }
 
 // The one place a get-page-outline line is laid out. It extends the
 // toOutlineLines shape, "<index> (<heading>)", with the size, and shows nesting
-// by indenting two spaces per level: "  2 (Origins), 500B" is a subsection of
-// the top-level "1 (Overview), 1400B". The heading is shown as plain text. The
+// by indenting two spaces per level: "  2 (Origins), 500 bytes" is a subsection of
+// the top-level "1 (Overview), 1400 bytes". The heading is shown as plain text. The
 // lead and top-level sections are not indented. One string per section renders
 // as one line, where an object renders as a line per field.
 export function formatOutlineLine(entry: OutlineEntry): string {

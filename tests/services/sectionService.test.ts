@@ -160,25 +160,25 @@ describe('toOutlineLines', () => {
 describe('formatOutlineLine', () => {
 	it('renders the lead and a top-level section without indentation', () => {
 		expect(formatOutlineLine({ index: 0, heading: 'Lead', approxBytes: 4300 })).toBe(
-			'0 (Lead), 4300B',
+			'0 (Lead), 4300 bytes',
 		);
 		expect(
 			formatOutlineLine({ index: 1, nesting: 0, heading: 'Overview', approxBytes: 1400 }),
-		).toBe('1 (Overview), 1400B');
+		).toBe('1 (Overview), 1400 bytes');
 	});
 
 	it('indents two spaces per nesting level', () => {
 		expect(formatOutlineLine({ index: 2, nesting: 1, heading: 'Origins', approxBytes: 500 })).toBe(
-			'  2 (Origins), 500B',
+			'  2 (Origins), 500 bytes',
 		);
 		expect(formatOutlineLine({ index: 8, nesting: 2, heading: 'Details', approxBytes: 600 })).toBe(
-			'    8 (Details), 600B',
+			'    8 (Details), 600 bytes',
 		);
 	});
 
 	it('keeps the size to two significant figures', () => {
 		expect(formatOutlineLine({ index: 4, nesting: 0, heading: 'Alloys', approxBytes: 574 })).toBe(
-			'4 (Alloys), 570B',
+			'4 (Alloys), 570 bytes',
 		);
 	});
 
@@ -190,10 +190,10 @@ describe('formatOutlineLine', () => {
 				heading: 'Events (<span>1990</span>-<span>1995</span>)',
 				approxBytes: 15622,
 			}),
-		).toBe('2 (Events (1990-1995)), 16000B');
+		).toBe('2 (Events (1990-1995)), 16000 bytes');
 		expect(
 			formatOutlineLine({ index: 3, heading: 'Fish &amp; <i>Chips</i>', approxBytes: 67 }),
-		).toBe('3 (Fish & Chips), 67B');
+		).toBe('3 (Fish & Chips), 67 bytes');
 	});
 
 	it('never prints an outline number', () => {
@@ -206,21 +206,21 @@ describe('formatOutlineLine', () => {
 describe('formatApproxBytes', () => {
 	// Two significant figures, halves away from zero, plain integer, capital B.
 	it.each([
-		[0, '0B'],
-		[5, '5B'],
-		[67, '67B'],
-		[99, '99B'],
-		[100, '100B'],
-		[311, '310B'],
-		[990, '990B'],
-		[994, '990B'],
-		[995, '1000B'],
-		[1050, '1100B'],
-		[1162, '1200B'],
-		[15622, '16000B'],
-		[99499, '99000B'],
-		[99500, '100000B'],
-		[159429, '160000B'],
+		[0, '0 bytes'],
+		[5, '5 bytes'],
+		[67, '67 bytes'],
+		[99, '99 bytes'],
+		[100, '100 bytes'],
+		[311, '310 bytes'],
+		[990, '990 bytes'],
+		[994, '990 bytes'],
+		[995, '1000 bytes'],
+		[1050, '1100 bytes'],
+		[1162, '1200 bytes'],
+		[15622, '16000 bytes'],
+		[99499, '99000 bytes'],
+		[99500, '100000 bytes'],
+		[159429, '160000 bytes'],
 	])('renders %i as %s', (bytes, expected) => {
 		expect(formatApproxBytes(bytes)).toBe(expected);
 	});
@@ -395,30 +395,30 @@ describe('buildOutline', () => {
 describe('outlineLines', () => {
 	it('renders the sized lines, indented by nesting', () => {
 		expect(outlineLines(OUTLINE_ENTRIES, 1000)).toEqual([
-			'0 (Lead), 100B',
-			'1 (Uses), 500B',
-			'  2 (Chemistry), 300B',
-			'3 (History), 400B',
+			'0 (Lead), 100 bytes',
+			'1 (Uses), 500 bytes',
+			'  2 (Chemistry), 300 bytes',
+			'3 (History), 400 bytes',
 		]);
 	});
 
 	it('renders three nesting levels and a skipped level', () => {
 		expect(outlineLines(DEEP_ENTRIES, 5000)).toEqual([
-			'0 (Lead), 120B',
-			'1 (Overview), 1400B',
-			'  2 (Origins), 1100B',
-			'    3 (Details), 600B',
-			'4 (Results), 1100B',
-			'  5 (Notes), 500B',
-			'6 (Sources), 2400B',
+			'0 (Lead), 120 bytes',
+			'1 (Overview), 1400 bytes',
+			'  2 (Origins), 1100 bytes',
+			'    3 (Details), 600 bytes',
+			'4 (Results), 1100 bytes',
+			'  5 (Notes), 500 bytes',
+			'6 (Sources), 2400 bytes',
 		]);
 	});
 
 	it('applies depth to the sized lines', () => {
 		expect(outlineLines(OUTLINE_ENTRIES, 1000, 1)).toEqual([
-			'0 (Lead), 100B',
-			'1 (Uses), 500B',
-			'3 (History), 400B',
+			'0 (Lead), 100 bytes',
+			'1 (Uses), 500 bytes',
+			'3 (History), 400 bytes',
 		]);
 	});
 
@@ -438,7 +438,7 @@ describe('outlineLines', () => {
 	it('does not count a transcluded heading as a missing byte offset', () => {
 		expect(
 			outlineLines([entry('1', 2, 'Uses', 100, '1', 1), entry('T-1', 2, 'Templated')], 1000),
-		).toEqual(['0 (Lead), 100B', '1 (Uses), 900B']);
+		).toEqual(['0 (Lead), 100 bytes', '1 (Uses), 900 bytes']);
 	});
 
 	it('applies depth to the short lines too, by the same nesting', () => {

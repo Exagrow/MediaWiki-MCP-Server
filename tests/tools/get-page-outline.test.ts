@@ -72,10 +72,10 @@ describe('get-page-outline', () => {
 		});
 		expect(pageSections).toEqual(['0 (Lead)', '1 (Uses)', '2 (Chemistry)', '3 (History)']);
 		expect(outlineSections).toEqual([
-			'0 (Lead), 100B',
-			'1 (Uses), 500B',
-			'  2 (Chemistry), 300B',
-			'3 (History), 400B',
+			'0 (Lead), 100 bytes',
+			'1 (Uses), 500 bytes',
+			'  2 (Chemistry), 300 bytes',
+			'3 (History), 400 bytes',
 		]);
 	});
 
@@ -106,7 +106,7 @@ describe('get-page-outline', () => {
 		const result = await getPageOutline.handle({ title: 'Copper', depth: 0 }, ctx);
 
 		expect(assertStructuredSuccess(result)).toContain(
-			'Sections:\n- 0 (Lead), 100B\n- 1 (Uses), 500B\n-   2 (Chemistry), 300B\n- 3 (History), 400B',
+			'Sections:\n- 0 (Lead), 100 bytes\n- 1 (Uses), 500 bytes\n-   2 (Chemistry), 300 bytes\n- 3 (History), 400 bytes',
 		);
 	});
 
@@ -126,8 +126,8 @@ describe('get-page-outline', () => {
 		const result = await getPageOutline.handle({ title: 'Copper', depth: 0 }, ctx);
 
 		expect((assertStructuredData(result) as Payload).sections).toEqual([
-			'0 (Lead), 67B',
-			'1 (Events (1990-1995)), 160000B',
+			'0 (Lead), 67 bytes',
+			'1 (Events (1990-1995)), 160000 bytes',
 		]);
 	});
 
@@ -137,9 +137,9 @@ describe('get-page-outline', () => {
 		const result = await getPageOutline.handle({ title: 'Copper', depth: 1 }, ctx);
 
 		expect((assertStructuredData(result) as Payload).sections).toEqual([
-			'0 (Lead), 100B',
-			'1 (Uses), 500B',
-			'3 (History), 400B',
+			'0 (Lead), 100 bytes',
+			'1 (Uses), 500 bytes',
+			'3 (History), 400 bytes',
 		]);
 	});
 
@@ -179,33 +179,33 @@ describe('get-page-outline', () => {
 
 		it('indents by outline depth', async () => {
 			expect(await linesAt(0)).toEqual([
-				'0 (Lead), 120B',
-				'1 (Overview), 1400B',
-				'  2 (Origins), 1100B',
-				'    3 (Details), 600B',
-				'4 (Results), 1100B',
-				'  5 (Notes), 500B',
-				'6 (Sources), 2400B',
+				'0 (Lead), 120 bytes',
+				'1 (Overview), 1400 bytes',
+				'  2 (Origins), 1100 bytes',
+				'    3 (Details), 600 bytes',
+				'4 (Results), 1100 bytes',
+				'  5 (Notes), 500 bytes',
+				'6 (Sources), 2400 bytes',
 			]);
 		});
 
 		it('keeps the skipped-level section at depth 2 and drops only the third level', async () => {
 			expect(await linesAt(2)).toEqual([
-				'0 (Lead), 120B',
-				'1 (Overview), 1400B',
-				'  2 (Origins), 1100B',
-				'4 (Results), 1100B',
-				'  5 (Notes), 500B',
-				'6 (Sources), 2400B',
+				'0 (Lead), 120 bytes',
+				'1 (Overview), 1400 bytes',
+				'  2 (Origins), 1100 bytes',
+				'4 (Results), 1100 bytes',
+				'  5 (Notes), 500 bytes',
+				'6 (Sources), 2400 bytes',
 			]);
 		});
 
 		it('lists only top-level sections at depth 1', async () => {
 			expect(await linesAt(1)).toEqual([
-				'0 (Lead), 120B',
-				'1 (Overview), 1400B',
-				'4 (Results), 1100B',
-				'6 (Sources), 2400B',
+				'0 (Lead), 120 bytes',
+				'1 (Overview), 1400 bytes',
+				'4 (Results), 1100 bytes',
+				'6 (Sources), 2400 bytes',
 			]);
 		});
 	});
