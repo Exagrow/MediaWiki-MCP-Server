@@ -156,4 +156,15 @@ describe('cargo-describe-table', () => {
 		expect(cargoDescribeTable.inputSchema.table.safeParse('').success).toBe(false);
 		expect(cargoDescribeTable.inputSchema.table.safeParse('items').success).toBe(true);
 	});
+
+	it('sends the request as a GET', async () => {
+		const mock = createMockMwn({ request: vi.fn().mockResolvedValue({ cargofields: {} }) });
+		const ctx = fakeContext({ mwn: async () => mock as never });
+
+		await cargoDescribeTable.handle({ table: 'items' }, ctx);
+
+		expect(mock.request).toHaveBeenCalledWith(expect.objectContaining({ action: 'cargofields' }), {
+			method: 'get',
+		});
+	});
 });

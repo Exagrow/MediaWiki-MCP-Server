@@ -251,4 +251,18 @@ describe('wikibase-add-statement', () => {
 	it('is annotated as a write tool so the read-only gate covers it', () => {
 		expect(wikibaseAddStatement.annotations.readOnlyHint).toBe(false);
 	});
+
+	it('looks the property up with a GET', async () => {
+		const { mock, ctx } = contextWith('wikibase-item');
+
+		await wikibaseAddStatement.handle(
+			toolArgs(wikibaseAddStatement, { entityId: 'Q42', propertyId: 'P31', value: 'Q5' }),
+			ctx,
+		);
+
+		expect(mock.request).toHaveBeenCalledWith(
+			expect.objectContaining({ action: 'wbgetentities' }),
+			{ method: 'get' },
+		);
+	});
 });

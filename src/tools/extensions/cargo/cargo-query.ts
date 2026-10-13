@@ -2,6 +2,7 @@ import { z } from 'zod';
 import type { CallToolResult } from '@modelcontextprotocol/server';
 import type { Tool } from '../../../runtime/tool.ts';
 import type { ToolContext } from '../../../runtime/context.ts';
+import { readRequest } from '../../../wikis/readRequest.ts';
 import type { TruncationInfo } from '../../../results/truncation.ts';
 
 const HARD_LIMIT = 500;
@@ -99,7 +100,7 @@ export const cargoQuery: Tool<typeof inputSchema> = {
 		if (continueFrom !== undefined) params.offset = currentOffset;
 
 		const mwn = await ctx.mwn();
-		const raw = await mwn.request(params);
+		const raw = await readRequest(mwn, params);
 		// oxlint-disable-next-line typescript/no-unsafe-type-assertion -- Cargo action=cargoquery response shape; trusted at this boundary
 		const response = raw as CargoQueryResponse;
 

@@ -2,6 +2,7 @@ import { z } from 'zod';
 import type { CallToolResult } from '@modelcontextprotocol/server';
 import type { Tool } from '../../../runtime/tool.ts';
 import type { ToolContext } from '../../../runtime/context.ts';
+import { readRequest } from '../../../wikis/readRequest.ts';
 import { formatEditComment } from '../../../wikis/utils.ts';
 
 // Datatypes whose value this tool can build from a plain string. Everything
@@ -63,7 +64,7 @@ export const wikibaseAddStatement: Tool<typeof inputSchema> = {
 		const mwn = await ctx.mwn();
 
 		// oxlint-disable-next-line typescript/no-unsafe-type-assertion -- wbgetentities response shape; trusted at this boundary
-		const lookup = (await mwn.request({
+		const lookup = (await readRequest(mwn, {
 			action: 'wbgetentities',
 			ids: property,
 			props: 'datatype',

@@ -62,6 +62,7 @@ describe('parse-wikitext', () => {
 				pst: true,
 				formatversion: '2',
 			}),
+			{ method: 'get' },
 		);
 	});
 
@@ -82,6 +83,7 @@ describe('parse-wikitext', () => {
 			expect.objectContaining({
 				title: 'Custom Title',
 			}),
+			{ method: 'get' },
 		);
 	});
 
@@ -99,6 +101,7 @@ describe('parse-wikitext', () => {
 			expect.objectContaining({
 				pst: false,
 			}),
+			{ method: 'get' },
 		);
 	});
 
@@ -313,5 +316,36 @@ describe('parse-wikitext', () => {
 		const text = assertStructuredSuccess(result);
 		expect(text).toMatch(/HTML:\n\ny{75000}/);
 		expect(text).not.toContain('Truncation:');
+	});
+
+	describe('request method', () => {
+		async function methodFor(wikitext: string): Promise<unknown> {
+			const mock = createMockMwn({
+				request: vi.fn().mockResolvedValue({ parse: { text: '<p>x</p>', parsewarnings: [] } }),
+			});
+			const ctx = fakeContext({ mwn: async () => mock as never });
+
+			await parseWikitext.handle({ wikitext, applyPreSaveTransform: true }, ctx);
+
+			expect(mock.request).toHaveBeenCalledTimes(1);
+			return mock.request.mock.calls[0][1];
+		}
+
+		it('sends 1 kB of wikitext as a GET', async () => {
+			expect(await methodFor('a'.repeat(1_000))).toEqual({ method: 'get' });
+		});
+
+		it('sends 6 kB of plain text as a GET', async () => {
+			expect(await methodFor('a'.repeat(6_000))).toEqual({ method: 'get' });
+		});
+
+		it('sends 60 kB of wikitext as a POST, which no URL can carry', async () => {
+			expect(await methodFor('a'.repeat(60_000))).toEqual({ method: 'post' });
+		});
+
+		it('counts the percent-encoded length, which spaces and markup triple', async () => {
+			// 3,000 characters, but 9,000 once each is encoded as %20.
+			expect(await methodFor(' '.repeat(3_000))).toEqual({ method: 'post' });
+		});
 	});
 });
