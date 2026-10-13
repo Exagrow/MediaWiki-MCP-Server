@@ -137,6 +137,7 @@ describe('registerAllTools — wiki management gating', () => {
 			expect(names).not.toContain('add-wiki');
 			expect(names).not.toContain('remove-wiki');
 			expect(names).toContain('get-page');
+			expect(names).toContain('get-page-outline');
 		} finally {
 			wikiStore.byKey = originalByKey;
 		}
