@@ -1,5 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
 import { createMockMwn } from '../helpers/mock-mwn.ts';
+import { readRequest } from '../helpers/revisionsRequest.ts';
 import { fakeContext } from '../helpers/fakeContext.ts';
 import { getPageOutline } from '../../src/tools/get-page-outline.ts';
 import { getPage } from '../../src/tools/get-page.ts';
@@ -28,8 +29,7 @@ const SECTIONS = [
 
 function contextFor(page: unknown = PAGE, sections: unknown[] = SECTIONS) {
 	const mock = createMockMwn({
-		read: vi.fn().mockResolvedValue(page),
-		request: vi.fn().mockResolvedValue({ parse: { sections } }),
+		request: readRequest(page as never, vi.fn().mockResolvedValue({ parse: { sections } })),
 	});
 	const ctx = fakeContext({
 		mwn: async () => mock as never,
@@ -89,10 +89,12 @@ describe('get-page-outline', () => {
 			direct.ctx,
 		);
 
-		expect(outline.mock.read.mock.calls).toEqual(direct.mock.read.mock.calls);
 		expect(outline.mock.request.mock.calls).toEqual(direct.mock.request.mock.calls);
-		expect(outline.mock.read).toHaveBeenCalledTimes(1);
-		expect(outline.mock.request).toHaveBeenCalledTimes(1);
+		const revisionsRequests = outline.mock.request.mock.calls.filter(
+			([params]) => params.prop === 'revisions',
+		);
+		expect(revisionsRequests).toHaveLength(1);
+		expect(outline.mock.request).toHaveBeenCalledTimes(2);
 		expect(outline.mock.request).toHaveBeenCalledWith(
 			expect.objectContaining({ action: 'parse', prop: 'sections' }),
 		);
@@ -246,7 +248,7 @@ describe('get-page-outline', () => {
 	});
 
 	it('classifies an API failure through the dispatcher', async () => {
-		const mock = createMockMwn({ read: vi.fn().mockRejectedValue(new Error('boom')) });
+		const mock = createMockMwn({ request: readRequest(new Error('boom')) });
 		const ctx = fakeContext({ mwn: async () => mock as never });
 
 		const result = await dispatch(getPageOutline, ctx)({ title: 'Copper', depth: 0 });

@@ -1,6 +1,11 @@
 import { describe, it, expect, vi } from 'vitest';
 import { createMockMwn } from '../helpers/mock-mwn.ts';
-import { readRequest } from '../helpers/revisionsRequest.ts';
+import {
+	readRequest,
+	revisionsResponse,
+	routeRequest,
+	toApiPage,
+} from '../helpers/revisionsRequest.ts';
 import { fakeContext } from '../helpers/fakeContext.ts';
 import { getPage } from '../../src/tools/get-page.ts';
 import { dispatch } from '../../src/runtime/dispatcher.ts';
@@ -392,21 +397,29 @@ describe('get-page', () => {
 	// "<index> (<heading>)" form however much the API reports.
 	it('metadata=true keeps the short section lines even when byte offsets and size are known', async () => {
 		const mock = createMockMwn({
-			read: vi.fn().mockResolvedValue({
-				pageid: 1,
-				title: 'Test Page',
-				revisions: [
-					{ revid: 42, timestamp: '2026-01-01T00:00:00Z', contentmodel: 'wikitext', size: 1000 },
-				],
-			}),
-			request: vi.fn().mockResolvedValue({
-				parse: {
-					sections: [
-						{ line: 'History', number: '1', index: '1', level: '2', byteoffset: 100 },
-						{ line: 'Early <i>years</i>', number: '1.1', index: '2', level: '3', byteoffset: 300 },
+			request: readRequest(
+				{
+					pageid: 1,
+					title: 'Test Page',
+					revisions: [
+						{ revid: 42, timestamp: '2026-01-01T00:00:00Z', contentmodel: 'wikitext', size: 1000 },
 					],
 				},
-			}),
+				vi.fn().mockResolvedValue({
+					parse: {
+						sections: [
+							{ line: 'History', number: '1', index: '1', level: '2', byteoffset: 100 },
+							{
+								line: 'Early <i>years</i>',
+								number: '1.1',
+								index: '2',
+								level: '3',
+								byteoffset: 300,
+							},
+						],
+					},
+				}),
+			),
 		});
 		const ctx = fakeContext({
 			mwn: async () => mock as never,
@@ -799,21 +812,27 @@ describe('get-page', () => {
 		];
 
 		function setup(request = vi.fn().mockResolvedValue({ parse: { text: '<p>Body</p>' } })) {
-			const read = vi.fn().mockResolvedValue({
-				pageid: 1,
-				title: 'Copper',
-				revisions: [
-					{
-						revid: 42,
-						timestamp: '2026-01-01T00:00:00Z',
-						contentmodel: 'wikitext',
-						size: 10,
-						content: 'Section body',
-					},
-				],
-			});
+			const read = vi.fn().mockResolvedValue(
+				revisionsResponse({
+					pages: [
+						toApiPage({
+							pageid: 1,
+							title: 'Copper',
+							revisions: [
+								{
+									revid: 42,
+									timestamp: '2026-01-01T00:00:00Z',
+									contentmodel: 'wikitext',
+									size: 10,
+									content: 'Section body',
+								},
+							],
+						}),
+					],
+				}),
+			);
 			const list = vi.fn().mockResolvedValue(outline);
-			const mock = createMockMwn({ read, request });
+			const mock = createMockMwn({ request: routeRequest(read, request) });
 			const ctx = fakeContext({
 				mwn: async () => mock as never,
 				sections: { list, listInSource: vi.fn() },
@@ -830,17 +849,23 @@ describe('get-page', () => {
 
 			assertStructuredSuccess(result);
 			expect(list).toHaveBeenCalledWith(expect.anything(), 'Copper');
-			expect(read).toHaveBeenCalledWith('Copper', expect.objectContaining({ rvsection: 2 }));
+			expect(read).toHaveBeenCalledWith(
+				expect.objectContaining({ titles: ['Copper'], rvsection: 2 }),
+			);
 		});
 
 		it('matches a heading with markup by its plain text', async () => {
 			const { read, ctx } = setup();
 
 			await getPage.handle({ ...base, section: 'further reading' }, ctx);
-			expect(read).toHaveBeenLastCalledWith('Copper', expect.objectContaining({ rvsection: 3 }));
+			expect(read).toHaveBeenLastCalledWith(
+				expect.objectContaining({ titles: ['Copper'], rvsection: 3 }),
+			);
 
 			await getPage.handle({ ...base, section: 'Fish & Chips' }, ctx);
-			expect(read).toHaveBeenLastCalledWith('Copper', expect.objectContaining({ rvsection: 5 }));
+			expect(read).toHaveBeenLastCalledWith(
+				expect.objectContaining({ titles: ['Copper'], rvsection: 5 }),
+			);
 		});
 
 		it('returns not_found with the outline when no heading matches', async () => {
@@ -881,7 +906,9 @@ describe('get-page', () => {
 			await getPage.handle({ ...base, section: ' 3 ' }, ctx);
 
 			expect(list).not.toHaveBeenCalled();
-			expect(read).toHaveBeenCalledWith('Copper', expect.objectContaining({ rvsection: 3 }));
+			expect(read).toHaveBeenCalledWith(
+				expect.objectContaining({ titles: ['Copper'], rvsection: 3 }),
+			);
 		});
 
 		it('rejects an empty or blank heading', async () => {
@@ -920,7 +947,9 @@ describe('get-page', () => {
 			const text = assertStructuredSuccess(result);
 			expect(list).toHaveBeenCalledTimes(1);
 			expect(text).toContain('1 (Chemistry)');
-			expect(read).toHaveBeenCalledWith('Copper', expect.objectContaining({ rvsection: 1 }));
+			expect(read).toHaveBeenCalledWith(
+				expect.objectContaining({ titles: ['Copper'], rvsection: 1 }),
+			);
 		});
 
 		// The entries carry byte offsets here, so a sized list is possible; the
